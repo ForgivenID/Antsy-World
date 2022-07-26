@@ -5,11 +5,13 @@ import uuid
 class SimSettings:
     worlds: int = 5
     portal_time: int = 10000
+    use_process_generation: bool = False
     name: str = datetime.datetime.now().strftime('%d.%m.%Y -- %H:%M:%S')
 
 
 class WorldSettings:
     dimensions: tuple[int, int] = (250, 250)
+    generator_processes: int = 4
     portals: int = 2
     starting_colonies: int = 3
     name: str = str(uuid.uuid4())

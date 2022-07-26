@@ -8,9 +8,10 @@ from misc.Paths import cwd
 
 
 class Tile:
-    def __init__(self):
+    def __init__(self, cords):
         self.occupied = False
         self.settings = Settings.EmptyTile()
+        self.cords = cords
 
     def move_from(self):
         self.occupied = False
@@ -36,23 +37,23 @@ class Tile:
 
 
 class Material(Tile):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, cords):
+        super().__init__(cords)
 
 
 class Rock(Tile):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, cords):
+        super().__init__(cords)
 
 
 class Food(Tile):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, cords):
+        super().__init__(cords)
 
 
 class Nest(Tile):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, cords):
+        super().__init__(cords)
 
 
 class Room:
@@ -75,11 +76,12 @@ class Room:
     def generate(self):
         for x in range(self.settings.dimensions[0]):
             for y in range(self.settings.dimensions[1]):
-                self.tiles[(x, y)] = \
-                    random.choices(population=[Material, Rock, Food], weights=self.settings.weights, k=1)[0]()
+                cords = (x, y)
+                self.tiles[cords] = \
+                    random.choices(population=[Material, Rock, Food], weights=self.settings.weights, k=1)[0](cords)
 
     @cached_property
-    def translate(self):
+    def translated(self):
         translated = {}
         for (x, y), tile in self.tiles:
             translated[((x+(self.settings.dimensions[0]*self.cords[0])),
@@ -119,17 +121,15 @@ class World:
             world_obj = pkl.load(savefile)
             self.__dict__ = self.__dict__ | world_obj
 
-    def __create(self):
-        for room in range(self.settings.starting_colonies):
-            while True:
-                cords = (random.randint(0, self.settings.dimensions[0]),
-                         random.randint(0, self.settings.dimensions[1]))
-
-                if cords not in self.rooms:
-                    break
-            self.rooms[cords] = ColonialRoom(cords)
+    @cached_property
+    def all_tiles(self):
+        tiles = {}
         for room in self.rooms.values():
-            room.generate()
+            tiles |= room.translated
+        return tiles
+
+    def __create(self):
+
         print(self.settings.name, ':')
         print('; \n'.join([': '.join([str(tuple(map(str, cords))), repr(room)]) for cords, room in self.rooms.items()]))
         self.save()
