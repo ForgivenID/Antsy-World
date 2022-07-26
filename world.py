@@ -1,12 +1,10 @@
 from functools import cached_property
 import random
 
-import Settings
-from numba import typed, typeof
-from numba.experimental import jitclass
+from misc import Settings
 import pickle as pkl
 from pathlib import Path
-from misc.paths import cwd
+from misc.Paths import cwd
 
 
 class Tile:
