@@ -134,12 +134,7 @@ class WorldGenHandler(mp.Process):
         self.workers = [self.worker(self.room_options, self.seed, self.output)
                         for _ in range(self.world_options.generator_processes)]
         self.distributor = SimpleDistributor(self.workers, WorldGen.generate)
-        print('created')
         [worker.start() for worker in self.workers]
-        print('started')
         [self.distributor(*request) for request in iter(self.requests.get, None)]
-        print('Not ohoh yet')
         [worker.requests.put(None) for worker in self.workers]
-        print('ohoh')
         [worker.join() for worker in self.workers]
-        print('end')
