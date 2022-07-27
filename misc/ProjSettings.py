@@ -2,13 +2,6 @@ import datetime
 import uuid
 
 
-class SimSettings:
-    worlds: int = 5
-    portal_time: int = 10000
-    use_process_generation: bool = False
-    name: str = datetime.datetime.now().strftime('%d.%m.%Y -- %H:%M:%S')
-
-
 class WorldSettings:
     dimensions: tuple[int, int] = (250, 250)
     generator_processes: int = 4
@@ -21,7 +14,7 @@ class WorldSettings:
 # ---
 
 class RoomSettings:
-    dimensions: tuple[int, int] = (10, 10)
+    dimensions: tuple[int, int] = (25, 25)
     name: str = str(uuid.uuid4())
     max_ants: int = 20
     ant_halt: float = .5
@@ -56,7 +49,9 @@ class ColonialRoomSettings(RoomSettings):
     weights = [material_source_chance, rock_chance, food_chance]
     max_ants = 30
 
+
 RngRoomTypes = [NormalRoomSettings, DesertRoomSettings, ForestRoomSettings]
+
 
 # ---
 
@@ -69,3 +64,12 @@ class EmptyTile(TileSettings):
     interactable = False
     tickable = False
     walk_cost = 1
+
+
+class SimSettings:
+    worlds: int = 5
+    portal_time: int = 10000
+    use_process_generation: bool = False
+    use_smart_request_distributor: bool = False
+    name: str = datetime.datetime.now().strftime('%d.%m.%Y -- %H:%M:%S')
+    room_settings = RoomSettings()

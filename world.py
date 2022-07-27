@@ -1,59 +1,12 @@
 from functools import cached_property
 import random
 
-from misc import Settings
+import worldgen
+from misc import ProjSettings
 import pickle as pkl
 from pathlib import Path
 from misc.Paths import cwd
-
-
-class Tile:
-    def __init__(self, cords):
-        self.occupied = False
-        self.settings = Settings.EmptyTile()
-        self.cords = cords
-
-    def move_from(self):
-        self.occupied = False
-        return True
-
-    def move_to(self):
-        if not self.occupied:
-            self.occupied = True
-            return True
-        return False
-
-    def update(self, tick, world, events=None):
-        if self.settings.interactable:
-            self.interaction_logic(tick, world, events)
-        if self.settings.tickable:
-            self.tick_logic(tick, world, events)
-
-    def interaction_logic(self, tick, world, events=None):
-        pass
-
-    def tick_logic(self, tick, world, events=None):
-        pass
-
-
-class Material(Tile):
-    def __init__(self, cords):
-        super().__init__(cords)
-
-
-class Rock(Tile):
-    def __init__(self, cords):
-        super().__init__(cords)
-
-
-class Food(Tile):
-    def __init__(self, cords):
-        super().__init__(cords)
-
-
-class Nest(Tile):
-    def __init__(self, cords):
-        super().__init__(cords)
+from tiles import EmptyTile
 
 
 class Room:
@@ -61,10 +14,10 @@ class Room:
         self.layout = {}
         self.ants = {}
         self.tiles = {}
-        self.settings = Settings.RoomSettings()
+        self.settings = ProjSettings.RoomSettings()
         self.cords = cords
 
-    def update(self, tick, world, events=None):
+    def update(self, tick, world, events=None) -> None:
         if events is None:
             events = []
         [tile.update(tick, world, events) for tile in self.tiles.values()]
@@ -73,19 +26,18 @@ class Room:
                 [ant.update() for ant in self.ants.values()]
         [ant.update() for ant in self.ants.values()]
 
-    def generate(self):
+    def generate(self) -> None:
         for x in range(self.settings.dimensions[0]):
             for y in range(self.settings.dimensions[1]):
                 cords = (x, y)
-                self.tiles[cords] = \
-                    random.choices(population=[Material, Rock, Food], weights=self.settings.weights, k=1)[0](cords)
+                self.tiles[cords] = EmptyTile(cords)
 
     @cached_property
     def translated(self):
         translated = {}
         for (x, y), tile in self.tiles:
-            translated[((x+(self.settings.dimensions[0]*self.cords[0])),
-                        (y+(self.settings.dimensions[1]*self.cords[1])))] = tile
+            translated[((x + (self.settings.dimensions[0] * self.cords[0])),
+                        (y + (self.settings.dimensions[1] * self.cords[1])))] = tile
         return translated
 
     def __repr__(self):
@@ -95,28 +47,32 @@ class Room:
 class ColonialRoom(Room):
     def __init__(self, cords):
         super().__init__(cords)
-        self.settings = Settings.ColonialRoomSettings()
+        self.settings = ProjSettings.ColonialRoomSettings()
+
 
 class World:
-    def __init__(self):
+    def __init__(self, sim_settings, world_settings):
         self.tick = 0
         self.rooms: dict[tuple[int, int], Room] = {}
         self.events = []
-        self.settings = Settings.WorldSettings()
+        self.sim_settings = sim_settings
+        self.settings = world_settings
+        self.generator = worldgen.WorldGenHandler(self.sim_settings.room_settings, self.settings)
         self.__create()
 
-    def update(self):
+    def update(self) -> None:
         for k, v in self.rooms.items():
             v.update(self.tick, self, self.events)
         self.tick += 1
 
-    def save(self):
+    def save(self) -> None:
         world_obj = {'tick': self.tick, 'rooms': self.rooms, 'settings': self.settings, 'events': self.events}
-        Path(cwd, self.settings.name).mkdir(parents=True, exist_ok=True)
-        with open(Path(cwd, self.settings.name, 'data.pk'), 'wb+') as savefile:
+        Path(cwd, self.sim_settings.name, self.settings.name).mkdir(parents=True, exist_ok=True)
+
+        with open(Path(cwd, self.sim_settings.name, self.settings.name, 'data.pk'), 'wb+') as savefile:
             pkl.dump(world_obj, savefile)
 
-    def load(self):
+    def load(self) -> None:
         with open(Path(cwd, self.settings.name, 'data.pk'), 'rb') as savefile:
             world_obj = pkl.load(savefile)
             self.__dict__ = self.__dict__ | world_obj
@@ -128,8 +84,8 @@ class World:
             tiles |= room.translated
         return tiles
 
-    def __create(self):
-
+    def __create(self) -> None:
         print(self.settings.name, ':')
+        [room.generate() for room in self.rooms.values()]
         print('; \n'.join([': '.join([str(tuple(map(str, cords))), repr(room)]) for cords, room in self.rooms.items()]))
         self.save()
