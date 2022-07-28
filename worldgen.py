@@ -149,6 +149,16 @@ class _WorldGenHandler:
         self.workers = []
         self.distributor = SimpleDistributor(self.workers, _WorldGen.request)
 
+    def request(self, x: int, y: int, opts: ProjSettings.RoomSettings):
+        """
+            Request a room to be generated.
+
+            :param x: Room's X coordinate
+            :param y: Room's Y coordinate
+            :param opts: Room's settings
+        """
+        self.requests.put((x, y, opts))
+
     def run(self) -> None:
         """
             Run the handler
