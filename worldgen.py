@@ -135,7 +135,7 @@ class WorldGenHandler:
 
 class _WorldGenHandler:
     """
-        Base _WorldGenHandler class, distributes generation requests over the workers.
+        Base _WorldGenHandler class, distributes generation requests over workers' pool.
         Preferably use WorldGenHandler instead of this (_WorldGenHandler) class.
     """
 

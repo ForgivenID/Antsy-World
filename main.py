@@ -14,9 +14,9 @@ class LogicProcess(mp.Process):
 
 if __name__ == '__main__':
     wgh = WorldGenHandler(ProjSettings.WorldSettings())
-    [[wgh.requests.put((x, y, ProjSettings.RoomSettings())) for x in range(10)] for y in range(10)]
+    [[wgh.request(x, y, ProjSettings.RoomSettings()) for x in range(10)] for y in range(10)]
     wgh.start()
-    wgh.requests.put((x, y, ProjSettings.RoomSettings()))
+    wgh.request(x, y, ProjSettings.RoomSettings())
     for _ in range(100):
         matrix = [['' for _ in range(25)] for _ in range(25)]
         res = wgh.output.get()
