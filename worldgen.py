@@ -174,7 +174,7 @@ class _WorldGenHandler:
 
 class WorldGenHandlerProcess(_WorldGenHandler, mp.Process):
     """
-        multiprocessing version of _WorldGenHandler
+        "Process controlling Threads" version of _WorldGenHandler
         Preferably use WorldGenHandler instead of this class.
     """
 
@@ -186,7 +186,7 @@ class WorldGenHandlerProcess(_WorldGenHandler, mp.Process):
 
 class WorldGenHandlerThread(_WorldGenHandler, thr.Thread):
     """
-        threading version of _WorldGenHandler
+        "Thread controlling Processes" version of _WorldGenHandler
         Preferably use WorldGenHandler instead of this class.
     """
 

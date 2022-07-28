@@ -3,7 +3,7 @@ from world import *
 import multiprocessing as mp
 from threading import Thread
 from queue import Queue as Queue
-
+import pygame
 from worldgen import WorldGenHandler
 
 
