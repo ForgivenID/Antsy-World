@@ -4,7 +4,8 @@ import uuid
 
 class WorldSettings:
     dimensions: tuple[int, int] = (250, 250)
-    generator_processes: int = 4
+    generator_processes: int = 2
+    generator_threads: int = 5
     portals: int = 2
     starting_colonies: int = 3
     name: str = str(uuid.uuid4())

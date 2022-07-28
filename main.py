@@ -22,4 +22,5 @@ if __name__ == '__main__':
         for cords, tile in res[1].items():
             matrix[cords[0]][cords[1]] = ' ' if type(tile) is EmptyTile else '#'
         print('\n'.join([' '.join(row) for row in matrix]))
-        wgh.requests.put(None)
+        print('--')
+

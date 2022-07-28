@@ -3,9 +3,12 @@ Antsy-World is a generated world full of self-improving colonies of ants, runnin
 ---
 Currently, in raw state, nothing is working yet.
 
+***DONE:***
+- Base world generation. 
 
-**_WIPs:_**
-- World generation. _(current)_
+***WIPs:***
+
+- Remove visible borders between rooms _(current)_
 - World rendering and culling basics
 - Ant baseline logic.
 - Experimental ant rendering

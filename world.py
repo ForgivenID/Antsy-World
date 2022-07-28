@@ -1,5 +1,4 @@
 from functools import cached_property
-import random
 
 import worldgen
 from misc import ProjSettings
@@ -8,6 +7,13 @@ from pathlib import Path
 from misc.Paths import cwd
 from tiles import EmptyTile
 
+neighbors = lambda x, y, d: sum([int(d[x2, y2]) for x2 in range(x - 1, x + 2)
+                                              for y2 in range(y - 1, y + 2)
+                                              if (-1 < x < ProjSettings.WorldSettings.dimensions[0] and
+                                                  -1 < y < ProjSettings.WorldSettings.dimensions[1] and
+                                                  (x != x2 or y != y2) and
+                                                  (0 <= x2 < ProjSettings.WorldSettings.dimensions[0]) and
+                                                  (0 <= y2 < ProjSettings.WorldSettings.dimensions[1]))])
 
 class Room:
     def __init__(self, cords):
@@ -57,7 +63,7 @@ class World:
         self.events = []
         self.sim_settings = sim_settings
         self.settings = world_settings
-        self.generator = worldgen.WorldGenHandler(self.sim_settings.room_settings, self.settings)
+        self.generator = worldgen.WorldGenHandler(self.settings)
         self.__create()
 
     def update(self) -> None:
@@ -89,3 +95,6 @@ class World:
         [room.generate() for room in self.rooms.values()]
         print('; \n'.join([': '.join([str(tuple(map(str, cords))), repr(room)]) for cords, room in self.rooms.items()]))
         self.save()
+        wgh = worldgen.WorldGenHandler(ProjSettings.WorldSettings())
+
+
