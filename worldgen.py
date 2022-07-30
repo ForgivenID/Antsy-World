@@ -1,20 +1,48 @@
+import copy
 import multiprocessing as mp
 import threading as thr
-import random as rn
-from collections import ChainMap
-import fastrand as frn
+from functools import cache, lru_cache
+
+import random as rnd
 from misc import ProjSettings
 from misc.ProjSettings import SimSettings
 import _sha256
 import tiles
 
-_neighbors = lambda x, y, d: sum([int(d[x2, y2]) for x2 in range(x - 1, x + 2)
-                                  for y2 in range(y - 1, y + 2)
-                                  if (-1 < x < ProjSettings.RoomSettings.dimensions[0] and
-                                      -1 < y < ProjSettings.RoomSettings.dimensions[1] and
-                                      (x != x2 or y != y2) and
-                                      (0 <= x2 < ProjSettings.RoomSettings.dimensions[0]) and
-                                      (0 <= y2 < ProjSettings.RoomSettings.dimensions[1]))])
+import gc
+
+
+def _neighbors(x, y, d, bx=ProjSettings.RoomSettings.dimensions[0], by=ProjSettings.RoomSettings.dimensions[1]):
+    i = 0
+    for x2 in range(x - 1, x + 2):
+        for y2 in range(y - 1, y + 2):
+            if (x != x2 or y != y2) and -1 < x < bx and -1 < y < by and (0 <= x2 < bx) and (0 <= y2 < by):
+                if d[x2, y2]:
+                    i += 1
+    return i
+
+
+# @lru_cache(maxsize=20)
+def _room_neighbors(x, y):
+    output = {}
+    nr = _n_room_neighbors()
+    for i, cords in nr.items():
+        output[i] = (cords[0] + x * ProjSettings.RoomSettings.dimensions[0],
+                     cords[1] + y * ProjSettings.RoomSettings.dimensions[1])
+
+    return output
+
+
+@cache
+def _n_room_neighbors():
+    output = {}
+    i = 0
+    for x2 in range(-1, 2):
+        for y2 in range(-1, 2):
+            i += 1
+            if not i % 2:
+                output[i] = (x2, y2)
+    return output
 
 
 class _SmartDistributor:
@@ -60,6 +88,13 @@ class _WorldGen:
         self.requests = mp.Queue()
         self.world = {}
         self.output = output
+        self.room_cords = [(x, y) for x in range(self.width) for y in range(self.height)]
+        self.n_room_cords = copy.copy(self.room_cords)
+        self.n_room_cords.extend(
+            [(cords[0] + offset_x * self.width // 2, cords[1] + offset_y * self.height // 2)
+             for cords in self.room_cords for offset_x in range(3) for offset_y in range(3) if
+             (cords[0] + offset_x * self.width // 2, cords[1] + offset_y * self.height // 2) not in self.room_cords])
+        self.generated = []
 
     def request(self, x: int, y: int, opts: ProjSettings.RoomSettings):
         """
@@ -71,35 +106,73 @@ class _WorldGen:
         """
         self.requests.put((x, y, opts))
 
+    @lru_cache(maxsize=20)
+    def generate_noise(self, room_seed, offset_x=0, offset_y=0):
+        """
+            Generate noise from seed
+
+        :param room_seed: Room's seed
+        :param offset_x: Room's offset by X
+        :param offset_y: Room's offset by Y
+        :return: Generated noise (dict)
+        """
+        random = rnd.Random(room_seed)
+        return {(cords[0] + offset_x * self.width, cords[1] + offset_y * self.height): bool(random.randint(0, 1))
+                for cords in self.room_cords}
+
+    def generate(self, w_seed, cords):
+        """
+            Generate cave-like 2D structure based of world seed and it's coordinates
+
+        :param w_seed: World's seed
+        :param cords: Room's coordinates
+        :return: Generated structure (dict)
+        """
+        rn = _room_neighbors(cords[0], cords[1])
+        local_rn = _n_room_neighbors()
+        room_seed = w_seed + cords[0] + cords[1] * self.width
+        generated_tiles = self.generate_noise(room_seed)
+        for i, c in rn.items():
+            l_room_seed = w_seed + c[0] * 10 + c[1]
+            generated_tiles.update(self.generate_noise(l_room_seed,
+                                                       offset_x=local_rn[i][0],
+                                                       offset_y=local_rn[i][1]))
+        for _ in range(len(generated_tiles) // 10):
+            for _cords in generated_tiles.keys():
+                c = _neighbors(_cords[0], _cords[1], generated_tiles)
+                if generated_tiles[_cords] and c < 3:
+                    generated_tiles[_cords] = False
+                    continue
+                elif c >= 6:
+                    generated_tiles[_cords] = True
+        return {cords: 1 if tile else 0
+                for cords, tile in generated_tiles.items() if cords in self.room_cords}
+
     def run(self) -> None:
         """
             Run the worker
         """
+        mp.current_process().name = '_WorldGen'
         w_seed = int.from_bytes(_sha256.sha256(str(self.seed).encode('utf-8')).digest(), 'little') // \
                  int.from_bytes(str(self.seed).encode('utf-8'), 'little')
-        room_cords = [(x, y) for x in range(self.width) for y in range(self.height)]
+        i = 0
+        random = rnd.Random(w_seed)
         for request in iter(self.requests.get, None):
-            room_seed = w_seed + request[0] * 10 + request[1]
-            opts = request[2]
-            frn.pcg32_seed(room_seed)
-            generated_tiles = {cords: frn.pcg32bounded(2) for cords in room_cords}
-            for _ in range(self.width * self.height // 5):
-                for cords in room_cords:
-                    c = _neighbors(cords[0], cords[1], generated_tiles)
-                    if generated_tiles[cords] and c < 3:
-                        generated_tiles[cords] = False
-                        continue
-                    if c >= 6:
-                        generated_tiles[cords] = True
-
-            tidy_tiles = {}
-
-            for cords, tile in generated_tiles.items():
-                tidy_tiles[cords] = tiles.RockTile(cords) if tile else tiles.EmptyTile(cords)
-                if tile:
-                    pass
+            i += 1
             cords = (request[0], request[1])
-            self.output.put((cords, tidy_tiles))
+            if cords in self.generated:
+                continue
+            opts = request[2]
+            generated_tiles = self.generate(w_seed*cords[0]*(cords[1]*self.width), cords)
+            self.output.put((cords, generated_tiles))
+            self.generated.append(cords)
+            if not (i % 60):
+                gc.collect()
+
+        self.kill()
+
+    def kill(self):
+        pass
 
 
 class _WorldGenThread(_WorldGen, thr.Thread):
@@ -147,6 +220,7 @@ class _WorldGenHandler:
         self.seed = self.world_options.seed
         self.worker = _WorldGenProcess
         self.workers = []
+        self.workers_amount = 1
         self.distributor = SimpleDistributor(self.workers, _WorldGen.request)
 
     def request(self, x: int, y: int, opts: ProjSettings.RoomSettings):
@@ -159,12 +233,19 @@ class _WorldGenHandler:
         """
         self.requests.put((x, y, opts))
 
+    def halt(self):
+        """
+            Send a message to all workers to stop the generation process.
+        """
+        self.requests.put(None)
+
     def run(self) -> None:
         """
             Run the handler
         """
+        mp.current_process().name = "WorldGenHandler"
         self.workers = [self.worker(self.room_options, self.seed, self.output)
-                        for _ in range(self.world_options.generator_processes)]
+                        for _ in range(self.workers_amount)]
         self.distributor = SimpleDistributor(self.workers, _WorldGen.request)
         [worker.start() for worker in self.workers]
         [self.distributor(*request) for request in iter(self.requests.get, None)]
@@ -182,6 +263,7 @@ class WorldGenHandlerProcess(_WorldGenHandler, mp.Process):
         mp.Process.__init__(self)
         _WorldGenHandler.__init__(self, world_options)
         self.worker = _WorldGenThread
+        self.workers_amount = self.world_options.generator_threads
 
 
 class WorldGenHandlerThread(_WorldGenHandler, thr.Thread):
@@ -193,3 +275,4 @@ class WorldGenHandlerThread(_WorldGenHandler, thr.Thread):
     def __init__(self, world_options):
         thr.Thread.__init__(self)
         _WorldGenHandler.__init__(self, world_options)
+        self.workers_amount = self.world_options.generator_processes
