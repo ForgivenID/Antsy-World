@@ -15,7 +15,7 @@ class WorldSettings:
 # ---
 
 class RoomSettings:
-    dimensions: tuple[int, int] = (10, 10)
+    dimensions: tuple[int, int] = (30, 30)
     name: str = str(uuid.uuid4())
     max_ants: int = 20
     ant_halt: float = .5

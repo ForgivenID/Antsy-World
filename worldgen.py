@@ -1,4 +1,5 @@
 import copy
+import hashlib
 import multiprocessing as mp
 import threading as thr
 from functools import cache, lru_cache
@@ -6,7 +7,7 @@ from functools import cache, lru_cache
 import random as rnd
 from misc import ProjSettings
 from misc.ProjSettings import SimSettings
-import _sha256
+
 import tiles
 
 import gc
@@ -120,6 +121,10 @@ class _WorldGen:
         return {(cords[0] + offset_x * self.width, cords[1] + offset_y * self.height): bool(random.randint(0, 1))
                 for cords in self.room_cords}
 
+    @lru_cache(maxsize=200)
+    def generate_room_seed(self, w_seed, cords):
+        return ((cords[0] + 1) << 256 + (cords[1] * ProjSettings.WorldSettings.dimensions[0] + 1) << 128) ^ w_seed
+
     def generate(self, w_seed, cords):
         """
             Generate cave-like 2D structure based of world seed and it's coordinates
@@ -130,14 +135,17 @@ class _WorldGen:
         """
         rn = _room_neighbors(cords[0], cords[1])
         local_rn = _n_room_neighbors()
-        room_seed = w_seed + cords[0] + cords[1] * self.width
+        # random = rnd.Random(w_seed)
+        # [random.random() for _ in range(cords[0] + cords[1] * self.width)]
+        room_seed = self.generate_room_seed(w_seed, cords)
         generated_tiles = self.generate_noise(room_seed)
+        random = rnd.Random(room_seed)
         for i, c in rn.items():
-            l_room_seed = w_seed + c[0] * 10 + c[1]
+            l_room_seed = self.generate_room_seed(w_seed, c)
             generated_tiles.update(self.generate_noise(l_room_seed,
                                                        offset_x=local_rn[i][0],
                                                        offset_y=local_rn[i][1]))
-        for _ in range(len(generated_tiles) // 10):
+        for _ in range(2):
             for _cords in generated_tiles.keys():
                 c = _neighbors(_cords[0], _cords[1], generated_tiles)
                 if generated_tiles[_cords] and c < 3:
@@ -145,6 +153,7 @@ class _WorldGen:
                     continue
                 elif c >= 6:
                     generated_tiles[_cords] = True
+
         return {cords: 1 if tile else 0
                 for cords, tile in generated_tiles.items() if cords in self.room_cords}
 
@@ -153,17 +162,18 @@ class _WorldGen:
             Run the worker
         """
         mp.current_process().name = '_WorldGen'
-        w_seed = int.from_bytes(_sha256.sha256(str(self.seed).encode('utf-8')).digest(), 'little') // \
+        w_seed = int.from_bytes(hashlib.sha256(str(self.seed).encode('utf-8')).digest(), 'little') // \
                  int.from_bytes(str(self.seed).encode('utf-8'), 'little')
         i = 0
-        random = rnd.Random(w_seed)
+
         for request in iter(self.requests.get, None):
             i += 1
             cords = (request[0], request[1])
             if cords in self.generated:
                 continue
             opts = request[2]
-            generated_tiles = self.generate(w_seed*cords[0]*(cords[1]*self.width), cords)
+
+            generated_tiles = self.generate(w_seed, cords)
             self.output.put((cords, generated_tiles))
             self.generated.append(cords)
             if not (i % 60):
