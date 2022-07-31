@@ -1,3 +1,4 @@
+import time
 from functools import cached_property
 
 import worldgen
@@ -6,6 +7,7 @@ import pickle as pkl
 from pathlib import Path
 from misc.Paths import cwd
 from tiles import EmptyTile
+import threading as thr
 
 neighbors = lambda x, y, d: sum([int(d[x2, y2]) for x2 in range(x - 1, x + 2)
                                               for y2 in range(y - 1, y + 2)
@@ -56,6 +58,21 @@ class ColonialRoom(Room):
         self.settings = ProjSettings.ColonialRoomSettings()
 
 
+class WorldUpdater(thr.Thread):
+    def __init__(self, world):
+        super(WorldUpdater, self).__init__(daemon=True)
+        self.killed = False
+        self.world = world
+
+    def run(self) -> None:
+        while not self.killed:
+            self.world.update()
+            time.sleep(1/60)
+
+    def halt(self):
+        self.killed = True
+
+
 class World:
     def __init__(self, sim_settings, world_settings):
         self.tick = 0
@@ -81,7 +98,11 @@ class World:
     def load(self) -> None:
         with open(Path(cwd, self.settings.name, 'data.pk'), 'rb') as savefile:
             world_obj = pkl.load(savefile)
-            self.__dict__ = self.__dict__ | world_obj
+            self.__dict__ |= world_obj
+        self.generator.halt()
+        self.generator.join()
+        del self.generator
+        self.generator = worldgen.WorldGenHandler(self.settings)
 
     @cached_property
     def all_tiles(self):
@@ -90,11 +111,27 @@ class World:
             tiles |= room.translated
         return tiles
 
+    def get_rooms(self, cords):
+        output = {}
+        for c in cords:
+            if c in self.rooms:
+                output[c] = self.rooms[c]
+            else:
+                self.generator.request(*cords)
+
+
     def __create(self) -> None:
         print(self.settings.name, ':')
         [room.generate() for room in self.rooms.values()]
         print('; \n'.join([': '.join([str(tuple(map(str, cords))), repr(room)]) for cords, room in self.rooms.items()]))
         self.save()
-        wgh = worldgen.WorldGenHandler(ProjSettings.WorldSettings())
+        self.generator.start()
+        self.save()
+
+    def quit(self):
+        self.generator.halt()
+        self.generator.join()
+        del self.generator
+        self.save()
 
 

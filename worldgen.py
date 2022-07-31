@@ -23,7 +23,7 @@ def _neighbors(x, y, d, bx=ProjSettings.RoomSettings.dimensions[0], by=ProjSetti
     return i
 
 
-# @lru_cache(maxsize=20)
+@lru_cache(maxsize=20)
 def _room_neighbors(x, y):
     output = {}
     nr = _n_room_neighbors()
@@ -44,6 +44,27 @@ def _n_room_neighbors():
             if not i % 2:
                 output[i] = (x2, y2)
     return output
+
+
+def check_shape(x, y, d):
+    neighbors = {i: bool(d[cords]) if cords in d else False for i, cords in _n_room_neighbors(x, y).items()}
+    match neighbors:
+        case [_, False, _,
+              True, False, False,
+              _, True, _]:
+            return 2
+        case [_, True, _,
+              True, False, False,
+              _, False, _]:
+            return 3
+        case [_, True, _,
+              False, False, True,
+              _, False, _]:
+            return 4
+        case [_, False, _,
+              False, False, True,
+              _, True, _]:
+            return 5
 
 
 class _SmartDistributor:
@@ -97,7 +118,7 @@ class _WorldGen:
              (cords[0] + offset_x * self.width // 2, cords[1] + offset_y * self.height // 2) not in self.room_cords])
         self.generated = []
 
-    def request(self, x: int, y: int, opts: ProjSettings.RoomSettings):
+    def request(self, x: int, y: int):
         """
             Request a room to be generated.
 
@@ -105,7 +126,7 @@ class _WorldGen:
             :param y: Room's Y coordinate
             :param opts: Room's settings
         """
-        self.requests.put((x, y, opts))
+        self.requests.put((x, y))
 
     @lru_cache(maxsize=20)
     def generate_noise(self, room_seed, offset_x=0, offset_y=0):
@@ -149,12 +170,12 @@ class _WorldGen:
             for _cords in generated_tiles.keys():
                 c = _neighbors(_cords[0], _cords[1], generated_tiles)
                 if generated_tiles[_cords] and c < 3:
-                    generated_tiles[_cords] = False
+                    generated_tiles[_cords] = 0
                     continue
                 elif c >= 6:
-                    generated_tiles[_cords] = True
+                    generated_tiles[_cords] = 1
 
-        return {cords: 1 if tile else 0
+        return {cords: check_shape(*cords, generated_tiles) if tile else 0
                 for cords, tile in generated_tiles.items() if cords in self.room_cords}
 
     def run(self) -> None:
@@ -171,8 +192,6 @@ class _WorldGen:
             cords = (request[0], request[1])
             if cords in self.generated:
                 continue
-            opts = request[2]
-
             generated_tiles = self.generate(w_seed, cords)
             self.output.put((cords, generated_tiles))
             self.generated.append(cords)
@@ -233,7 +252,7 @@ class _WorldGenHandler:
         self.workers_amount = 1
         self.distributor = SimpleDistributor(self.workers, _WorldGen.request)
 
-    def request(self, x: int, y: int, opts: ProjSettings.RoomSettings):
+    def request(self, x: int, y: int):
         """
             Request a room to be generated.
 
@@ -241,7 +260,7 @@ class _WorldGenHandler:
             :param y: Room's Y coordinate
             :param opts: Room's settings
         """
-        self.requests.put((x, y, opts))
+        self.requests.put((x, y))
 
     def halt(self):
         """

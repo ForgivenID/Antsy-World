@@ -1,5 +1,6 @@
 import datetime
 import uuid
+from win32api import GetSystemMetrics
 
 
 class WorldSettings:
@@ -57,13 +58,13 @@ RngRoomTypes = [NormalRoomSettings, DesertRoomSettings, ForestRoomSettings]
 # ---
 
 class TileSettings:
-    dimensions: tuple[int, int] = (50, 50)
+    dimensions: tuple[int, int] = (10, 10)
     name: str = str(uuid.uuid4())
 
 
 class EmptyTile(TileSettings):
     interactable = False
-    tickable = False
+    tick_logic = False
     walk_cost = 1
 
 
@@ -72,5 +73,16 @@ class SimSettings:
     portal_time: int = 10000
     use_process_generation: bool = True
     use_smart_request_distributor: bool = False
-    name: str = datetime.datetime.now().strftime('%d.%m.%Y -- %H:%M:%S')
+    name: str = datetime.datetime.now().strftime('%d.%m.%Y %H-%M-%S')
     room_settings = RoomSettings()
+
+
+class RenderingSettings:
+    rendering_distance: int = 10
+    framerate: int = 30
+    fullscreen: bool = False
+    window_size: tuple[int, int] = (1000, 1000)
+    resolution: tuple[int, int] = (GetSystemMetrics(0), GetSystemMetrics(1))
+    room_size: tuple[int, int] = (RoomSettings.dimensions[0] * TileSettings.dimensions[0],
+                                  RoomSettings.dimensions[1] * TileSettings.dimensions[1])
+    resizable: bool = True

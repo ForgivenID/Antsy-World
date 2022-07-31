@@ -14,7 +14,7 @@ class Wall:
     def __init__(self, ):
         self.visible = False
         self.sprite = pg.sprite.Sprite()
-        self.sprite.image =
+        self.sprite.image = None
         self.interactable = False
         self.depth = 0
 
