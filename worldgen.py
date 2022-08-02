@@ -47,7 +47,7 @@ def _n_room_neighbors():
 
 
 def check_shape(x, y, d):
-    neighbors = {i: bool(d[cords]) if cords in d else False for i, cords in _n_room_neighbors(x, y).items()}
+    neighbors = {i: bool(d[cords]) if cords in d else False for i, cords in _n_room_neighbors().items()}
     match neighbors:
         case [_, False, _,
               True, False, False,
@@ -65,6 +65,8 @@ def check_shape(x, y, d):
               False, False, True,
               _, True, _]:
             return 5
+        case _:
+            return 1
 
 
 class _SmartDistributor:
@@ -154,6 +156,8 @@ class _WorldGen:
         :param cords: Room's coordinates
         :return: Generated structure (dict)
         """
+        if cords[0] < 0 or cords[1] < 0:
+            return {cords: {}}
         rn = _room_neighbors(cords[0], cords[1])
         local_rn = _n_room_neighbors()
         # random = rnd.Random(w_seed)
@@ -258,7 +262,6 @@ class _WorldGenHandler:
 
             :param x: Room's X coordinate
             :param y: Room's Y coordinate
-            :param opts: Room's settings
         """
         self.requests.put((x, y))
 

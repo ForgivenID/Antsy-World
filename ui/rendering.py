@@ -65,13 +65,13 @@ class Camera(pg.Surface):
         if abs(self.velocity.z) < .01: self.velocity.z = 0
 
     def get_gridset(self):
-        rect_cords = (int(self.position.x // rs.room_size[0]),
-                      int(self.position.y // rs.room_size[1]),
-                      int(math.ceil((self.get_width() / self.position.z) / rs.room_size[0])),
-                      int(math.ceil((self.get_height() / self.position.z) / rs.room_size[1])))
+        rect_cords = (int(math.ceil((self.position.x - (self.get_width() / self.position.z)/2) // rs.room_size[0])),
+                      int(math.ceil((self.position.y - (self.get_height() / self.position.z)/2) // rs.room_size[1])),
+                      int(math.ceil((self.position.x + (self.get_width() / self.position.z)/2) / rs.room_size[0])),
+                      int(math.ceil((self.position.x + (self.get_height() / self.position.z)/2) / rs.room_size[1])))
         cords = []
         for x in range(rect_cords[0], rect_cords[2]):
-            for y in range(rect_cords[2], rect_cords[3]):
+            for y in range(rect_cords[1], rect_cords[3]):
                 cords.append((x, y))
         return rect_cords, cords
 
@@ -81,6 +81,7 @@ class Camera(pg.Surface):
         for c in cords:
             if c not in known_rooms:
                 continue
+
         return grid_surface
 
 
@@ -126,7 +127,7 @@ class RenderThread(thr.Thread):
                 events = pg.key.get_pressed()
                 match event.type:
                     case pg.QUIT:
-                        _escaped = True
+                        self.halt()
                 if events[pg.K_w]:
                     camera.local_move(0, -.3)
                 elif events[pg.K_s]:

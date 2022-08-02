@@ -14,7 +14,6 @@ if __name__ == '__main__':
     world = World(ProjSettings.SimSettings(), ProjSettings.WorldSettings())
     rendering = RenderThread(world)
     rendering.start()
-    rendering.halt()
     rendering.join()
     world.save()
     world.quit()

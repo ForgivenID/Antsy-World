@@ -61,29 +61,39 @@ class ColonialRoom(Room):
 class WorldUpdater(thr.Thread):
     def __init__(self, world):
         super(WorldUpdater, self).__init__(daemon=True)
-        self.killed = False
+        self.killed = thr.Event()
         self.world = world
 
     def run(self) -> None:
-        while not self.killed:
-            self.world.update()
+        i = 0
+        while not self.killed.is_set():
+            i += 1
+            self.world.get_generated()
             time.sleep(1/60)
+            if not i % 120:
+                self.world.update()
+            if i > 1000:
+                i = 0
 
     def halt(self):
-        self.killed = True
+        self.killed.set()
 
 
 class World:
     def __init__(self, sim_settings, world_settings):
         self.tick = 0
-        self.rooms: dict[tuple[int, int], Room] = {}
+        self.rooms: dict[tuple[int, int], dict] = {}
         self.events = []
         self.sim_settings = sim_settings
         self.settings = world_settings
         self.generator = worldgen.WorldGenHandler(self.settings)
+        self.updater = WorldUpdater(self)
         self.__create()
 
+
     def update(self) -> None:
+        print(self.rooms.keys())
+        return
         for k, v in self.rooms.items():
             v.update(self.tick, self, self.events)
         self.tick += 1
@@ -110,14 +120,22 @@ class World:
         for room in self.rooms.values():
             tiles |= room.translated
         return tiles
-
+    
+    def get_generated(self):
+        while not self.generator.output.empty():
+            data = self.generator.output.get()
+            self.rooms[data[0]] = data[1]
+    
     def get_rooms(self, cords):
         output = {}
         for c in cords:
             if c in self.rooms:
                 output[c] = self.rooms[c]
             else:
-                self.generator.request(*cords)
+                self.generator.request(*c)
+                self.rooms[c] = {}
+        return output
+        
 
 
     def __create(self) -> None:
@@ -126,6 +144,7 @@ class World:
         print('; \n'.join([': '.join([str(tuple(map(str, cords))), repr(room)]) for cords, room in self.rooms.items()]))
         self.save()
         self.generator.start()
+        self.updater.start()
         self.save()
 
     def quit(self):
