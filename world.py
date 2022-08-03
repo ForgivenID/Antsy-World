@@ -10,12 +10,13 @@ from tiles import EmptyTile
 import threading as thr
 
 neighbors = lambda x, y, d: sum([int(d[x2, y2]) for x2 in range(x - 1, x + 2)
-                                              for y2 in range(y - 1, y + 2)
-                                              if (-1 < x < ProjSettings.WorldSettings.dimensions[0] and
-                                                  -1 < y < ProjSettings.WorldSettings.dimensions[1] and
-                                                  (x != x2 or y != y2) and
-                                                  (0 <= x2 < ProjSettings.WorldSettings.dimensions[0]) and
-                                                  (0 <= y2 < ProjSettings.WorldSettings.dimensions[1]))])
+                                 for y2 in range(y - 1, y + 2)
+                                 if (-1 < x < ProjSettings.WorldSettings.dimensions[0] and
+                                     -1 < y < ProjSettings.WorldSettings.dimensions[1] and
+                                     (x != x2 or y != y2) and
+                                     (0 <= x2 < ProjSettings.WorldSettings.dimensions[0]) and
+                                     (0 <= y2 < ProjSettings.WorldSettings.dimensions[1]))])
+
 
 class Room:
     def __init__(self, cords):
@@ -24,6 +25,11 @@ class Room:
         self.tiles = {}
         self.settings = ProjSettings.RoomSettings()
         self.cords = cords
+        self.surf = None
+
+    def check_if_I_in_camera_or_not_heh_smile(self):
+        print(self.cords, self)
+        return True
 
     def update(self, tick, world, events=None) -> None:
         if events is None:
@@ -69,7 +75,7 @@ class WorldUpdater(thr.Thread):
         while not self.killed.is_set():
             i += 1
             self.world.get_generated()
-            time.sleep(1/60)
+            time.sleep(1 / 60)
             if not i % 120:
                 self.world.update()
             if i > 1000:
@@ -89,7 +95,6 @@ class World:
         self.generator = worldgen.WorldGenHandler(self.settings)
         self.updater = WorldUpdater(self)
         self.__create()
-
 
     def update(self) -> None:
         print(self.rooms.keys())
@@ -120,12 +125,12 @@ class World:
         for room in self.rooms.values():
             tiles |= room.translated
         return tiles
-    
+
     def get_generated(self):
         while not self.generator.output.empty():
             data = self.generator.output.get()
             self.rooms[data[0]] = data[1]
-    
+
     def get_rooms(self, cords):
         output = {}
         for c in cords:
@@ -135,8 +140,6 @@ class World:
                 self.generator.request(*c)
                 self.rooms[c] = {}
         return output
-        
-
 
     def __create(self) -> None:
         print(self.settings.name, ':')
@@ -152,5 +155,3 @@ class World:
         self.generator.join()
         del self.generator
         self.save()
-
-

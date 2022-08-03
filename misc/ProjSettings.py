@@ -81,7 +81,7 @@ class RenderingSettings:
     rendering_distance: int = 10
     framerate: int = 30
     fullscreen: bool = False
-    window_size: tuple[int, int] = (1000, 1000)
+    window_size: tuple[int, int] = (1000, 500)
     resolution: tuple[int, int] = (GetSystemMetrics(0), GetSystemMetrics(1))
     room_size: tuple[int, int] = (RoomSettings.dimensions[0] * TileSettings.dimensions[0],
                                   RoomSettings.dimensions[1] * TileSettings.dimensions[1])

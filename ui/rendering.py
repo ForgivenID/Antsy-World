@@ -1,3 +1,5 @@
+import time
+
 import pygame as pg
 import pygame.math
 
@@ -65,10 +67,10 @@ class Camera(pg.Surface):
         if abs(self.velocity.z) < .01: self.velocity.z = 0
 
     def get_gridset(self):
-        rect_cords = (int(math.ceil((self.position.x - (self.get_width() / self.position.z)/2) // rs.room_size[0])),
-                      int(math.ceil((self.position.y - (self.get_height() / self.position.z)/2) // rs.room_size[1])),
-                      int(math.ceil((self.position.x + (self.get_width() / self.position.z)/2) / rs.room_size[0])),
-                      int(math.ceil((self.position.x + (self.get_height() / self.position.z)/2) / rs.room_size[1])))
+        rect_cords = (int(math.ceil((self.position.x - (self.get_width() / self.position.z) / 2) / rs.room_size[0])),
+                      int(math.ceil((self.position.y - (self.get_height() / self.position.z) / 2) / rs.room_size[1])),
+                      int(math.ceil((self.position.x + (self.get_width() / self.position.z) / 2) / rs.room_size[0])),
+                      int(math.ceil((self.position.x + (self.get_height() / self.position.z) / 2) / rs.room_size[1])))
         cords = []
         for x in range(rect_cords[0], rect_cords[2]):
             for y in range(rect_cords[1], rect_cords[3]):
@@ -77,10 +79,10 @@ class Camera(pg.Surface):
 
     def get_surface(self, scene):
         rect_cords, cords = self.get_gridset()
-        grid_surface = pg.Surface((rect_cords[0]*RoomSettings.dimensions[0], rect_cords[1]*RoomSettings.dimensions[1]))
+        grid_surface = pg.Surface((100, 100))
         for c in cords:
             if c not in known_rooms:
-                continue
+                grid_surface.blit(c)
 
         return grid_surface
 
@@ -98,16 +100,91 @@ class DrawThread(thr.Thread):
             self.display = pg.display.set_mode(size=(0, 0), flags=pg.FULLSCREEN | pg.DOUBLEBUF | pg.HWACCEL)
         else:
             self.display = pg.display.set_mode(size=rs.window_size, flags=pg.RESIZABLE if rs.resizable else 0)
+        self.rooms = dict()
+
+    class DrawableRoomSukaBlyatb:
+        def __init__(self, pos: tuple, tiles: dict):
+            from misc.ProjSettings import TileSettings
+            self.surf = pg.Surface((rs.room_size[0], rs.room_size[0]))
+            self.surf.fill((50,0,100))
+            self.pos = pos
+            self.tiles = tiles
+
+            for obj in tiles.keys():
+                pygame.draw.rect(self.surf, (100, 100, 100), ((obj[0] * TileSettings.dimensions[0], obj[1] * TileSettings.dimensions[1]), TileSettings.dimensions))
+
+        def get_figure_blyat(self, n):
+            from misc.ProjSettings import TileSettings
+            sf = pg.Surface((TileSettings.dimensions[0], TileSettings.dimensions[1]))
+            sf.fill((50,0,100))
+            match n:
+                case 0:
+                    return sf
+                case 1:
+                    sf.fill((100, 100, 100))
+                    return sf
+                case 2:
+                    pygame.draw.polygon(sf, (100, 100, 100), [(0, 0), (sf.get_width(), sf.get_height()), (0, sf.get_height())])
+                    return sf
+                case 3:
+                    pygame.draw.polygon(sf, (100, 100, 100),
+                                        [(0, 0), (sf.get_width(), 0), (0, sf.get_height())])
+                    return sf
+                case 4:
+                    pygame.draw.polygon(sf, (100, 100, 100),
+                                        [(0, 0), (sf.get_width(), 0), (sf.get_width(), 0)])
+                    return sf
+                case 5:
+                    pygame.draw.polygon(sf, (100, 100, 100),
+                                        [(sf.get_width(), 0), (sf.get_width(), 0), (sf.get_width(), sf.get_height())])
+                    return sf
+
+
+        def update(self, tiles):
+            self.tiles=tiles
+            from misc.ProjSettings import TileSettings
+            #print(tiles)
+            for obj in tiles.keys():
+                if (tiles[obj].__class__ is dict and "updated" in tiles[obj] and tiles[obj]["updated"]) or (tiles[obj].__class__ is not dict):
+                    #pygame.draw.rect(self.surf, (50,0,100), ((obj[0] * TileSettings.dimensions[0], obj[1] * TileSettings.dimensions[1]), TileSettings.dimensions))
+                    self.surf.blit(self.get_figure_blyat(tiles[obj]), ((obj[0] * TileSettings.dimensions[0], obj[1] * TileSettings.dimensions[1]), TileSettings.dimensions))
+
+    def get_which_rooms_should_i_blit_in_this_current_situation(self):
+        k_rooms = known_rooms
+        rooms = []
+        #print(camera.position)
+        for i in range(int(camera.position[0]), self.display.get_width()//rs.room_size[0]):
+            for j in range(int(camera.position[1]), self.display.get_height()//rs.room_size[1]):
+                #print(i, j, k_rooms.keys())
+                if (i, j) in k_rooms.keys():
+
+                    rooms.append(((i, j), k_rooms[(i, j)]))
+        return rooms
+
+    def process_rooms(self):
+        for room in self.get_which_rooms_should_i_blit_in_this_current_situation():
+
+            if not room[0] in self.rooms.keys():
+                self.rooms[room[0]] = DrawThread.DrawableRoomSukaBlyatb(room[0], room[1])
+            else:
+                self.rooms[room[0]].update(room[1])
+
+            self.display.blit(self.rooms[room[0]].surf, (-camera.position[0]+rs.room_size[0] * room[0][0], -camera.position[1]+rs.room_size[1] * room[0][1]))
 
     def run(self):
         color = (0, 0, 0)
         scene = BaseScene()
         while not _escaped:
+            tf = time.time()
             dt = self.clock.tick(rs.framerate) * .001 * rs.framerate
             camera.update(dt)
+
             self.display.fill(color)
-            self.display.blit(camera.get_surface(scene), (0, 0))
+            self.process_rooms()
+            #print(self.rooms, self.get_which_rooms_should_i_blit_in_this_current_situation())
+
             pg.display.flip()
+            print(1/(time.time()-tf))
 
 
 class RenderThread(thr.Thread):
