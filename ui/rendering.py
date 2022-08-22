@@ -40,6 +40,7 @@ class Camera(pg.Surface):
             self.position.y = self.max_position.y
         if self.position.z > self.max_position.z:
             self.position.z = self.max_position.z
+        print(self.position)
 
     def local_move(self, x, y):
         self.acceleration.x = x / self.position.z
@@ -65,8 +66,8 @@ class Camera(pg.Surface):
         if abs(self.velocity.z) < .01: self.velocity.z = 0
 
     def get_gridset(self):
-        rect_cords = (int(math.ceil((self.position.x - (self.get_width() / self.position.z)/2) // rs.room_size[0])),
-                      int(math.ceil((self.position.y - (self.get_height() / self.position.z)/2) // rs.room_size[1])),
+        rect_cords = (int(math.ceil((self.position.x - (self.get_width() / self.position.z)/2) / rs.room_size[0])),
+                      int(math.ceil((self.position.y - (self.get_height() / self.position.z)/2) / rs.room_size[1])),
                       int(math.ceil((self.position.x + (self.get_width() / self.position.z)/2) / rs.room_size[0])),
                       int(math.ceil((self.position.x + (self.get_height() / self.position.z)/2) / rs.room_size[1])))
         cords = []
@@ -77,7 +78,7 @@ class Camera(pg.Surface):
 
     def get_surface(self, scene):
         rect_cords, cords = self.get_gridset()
-        grid_surface = pg.Surface((rect_cords[0]*RoomSettings.dimensions[0], rect_cords[1]*RoomSettings.dimensions[1]))
+        grid_surface = pg.Surface((0, 0))
         for c in cords:
             if c not in known_rooms:
                 continue

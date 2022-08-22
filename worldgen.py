@@ -179,7 +179,7 @@ class _WorldGen:
                 elif c >= 6:
                     generated_tiles[_cords] = 1
 
-        return {cords: check_shape(*cords, generated_tiles) if tile else 0
+        return {cords: tiles.Tile() if tile else 0
                 for cords, tile in generated_tiles.items() if cords in self.room_cords}
 
     def run(self) -> None:
