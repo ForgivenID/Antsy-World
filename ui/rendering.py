@@ -43,8 +43,10 @@ class Camera(pg.Surface):
         if self.position.z > self.max_position.z:
             self.position.z = self.max_position.z
 
-    def local_move(self, x, y):
+    def local_move_x(self, x):
         self.acceleration.x = x / self.position.z
+
+    def local_move_y(self, y):
         self.acceleration.y = y / self.position.z
 
     def local_zoom(self, z):
@@ -206,13 +208,17 @@ class RenderThread(thr.Thread):
                     case pg.QUIT:
                         self.halt()
                 if events[pg.K_w]:
-                    camera.local_move(0, -.3)
+                    camera.local_move_y(-.3)
                 elif events[pg.K_s]:
-                    camera.local_move(0, .3)
+                    camera.local_move_y(.3)
                 if events[pg.K_a]:
-                    camera.local_move(-.3, 0)
+                    camera.local_move_x(-.3)
                 elif events[pg.K_d]:
-                    camera.local_move(.3, 0)
+                    camera.local_move_x(.3)
+                if events[pg.K_r]:
+                    camera.local_zoom(-.01)
+                elif events[pg.K_f]:
+                    camera.local_zoom(.01)
             known_rooms = self.world.get_rooms(camera.get_gridset()[1])
 
             self.clock.tick(rs.framerate // 2)
