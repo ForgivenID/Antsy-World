@@ -1,16 +1,39 @@
 import copy
+import gc
 import hashlib
 import multiprocessing as mp
+import random as rnd
 import threading as thr
 from functools import cache, lru_cache
 
-import random as rnd
 from misc import ProjSettings
 from misc.ProjSettings import SimSettings
 
-import tiles
+shape_patterns = {
 
-import gc
+    (1, 1, 1, 1): (1, 0),  # Full wall
+
+    (0, 1, 0, 1): (2, 0),  # Wedge wall
+    (1, 1, 0, 0): (2, 1),
+    (1, 0, 1, 0): (2, 2),
+    (0, 0, 1, 1): (2, 3),
+
+    (1, 1, 0, 1): (3, 0),  # Sided wall
+    (1, 1, 1, 0): (3, 1),
+    (1, 0, 1, 1): (3, 2),
+    (0, 1, 1, 1): (3, 3),
+
+    (0, 1, 1, 0): (4, 0),  # Tube wall
+    (1, 0, 0, 1): (4, 1),
+
+    (0, 1, 0, 0): (5, 0),  # Pointy wall
+    (1, 0, 0, 0): (5, 1),
+    (0, 0, 1, 0): (5, 2),
+    (0, 0, 0, 1): (5, 3),
+
+    (0, 0, 0, 0): (6, 0),  # Round pillar wall
+
+}
 
 
 def _neighbors(x, y, d, bx=ProjSettings.RoomSettings.dimensions[0], by=ProjSettings.RoomSettings.dimensions[1]):
@@ -47,26 +70,9 @@ def _n_room_neighbors():
 
 
 def check_shape(x, y, d):
-    neighbors = {i: bool(d[cords]) if cords in d else False for i, cords in _n_room_neighbors().items()}
-    match neighbors:
-        case [_, False, _,
-              True, False, False,
-              _, True, _]:
-            return 2
-        case [_, True, _,
-              True, False, False,
-              _, False, _]:
-            return 3
-        case [_, True, _,
-              False, False, True,
-              _, False, _]:
-            return 4
-        case [_, False, _,
-              False, False, True,
-              _, True, _]:
-            return 5
-        case _:
-            return 1
+    neighbors = [bool(d[cords[0] + x, cords[1] + y]) if cords in d else False for i, cords in
+                 _n_room_neighbors().items()]
+    return shape_patterns[tuple(neighbors)] if tuple(neighbors) in shape_patterns else (1, 0)
 
 
 class _SmartDistributor:
@@ -148,7 +154,7 @@ class _WorldGen:
     def generate_room_seed(self, w_seed, cords):
         return ((cords[0] + 1) << 256 + (cords[1] * ProjSettings.WorldSettings.dimensions[0] + 1) << 128) ^ w_seed
 
-    def generate(self, w_seed, cords):
+    def generate(self, w_seed, cords, f=True):
         """
             Generate cave-like 2D structure based of world seed and it's coordinates
 
@@ -179,8 +185,11 @@ class _WorldGen:
                 elif c >= 6:
                     generated_tiles[_cords] = 1
 
-        return {cords: tiles.Tile() if tile else 0
-                for cords, tile in generated_tiles.items() if cords in self.room_cords}
+        return {
+            'tiles': {
+                cords: {'type': check_shape(*cords, generated_tiles), 'object': 'NormalWall'} if tile else
+                {'type': 1, 'object': 'NormalFloor'}
+                for cords, tile in generated_tiles.items() if cords in self.room_cords}}
 
     def run(self) -> None:
         """

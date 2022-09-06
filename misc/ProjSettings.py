@@ -85,4 +85,5 @@ class RenderingSettings:
     resolution: tuple[int, int] = (GetSystemMetrics(0), GetSystemMetrics(1))
     room_size: tuple[int, int] = (RoomSettings.dimensions[0] * TileSettings.dimensions[0],
                                   RoomSettings.dimensions[1] * TileSettings.dimensions[1])
+    tile_size: tuple[int, int] = TileSettings.dimensions
     resizable: bool = True
