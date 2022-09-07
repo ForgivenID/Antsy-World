@@ -27,7 +27,7 @@ class Camera(pg.Surface):
         self.friction = pg.math.Vector3(-.12, -.12, -.2)
         self.acceleration = pg.math.Vector3(0, 0, 0)
         self.max_velocity = pg.math.Vector3(1, 1, 1)
-        self.max_position = pg.math.Vector3(4500, 4500, 6)
+        self.max_position = pg.math.Vector3(4500, 4500, 2)
         self.min_position = pg.math.Vector3(0, 0, 0.45)
 
     def update(self, dt):
@@ -128,10 +128,8 @@ class DrawThread(thr.Thread):
         while not _escaped:
             dt = self.clock.tick(rs.framerate) * .001 * rs.framerate
             camera.update(dt)
-            self.display.fill(color)
             s.fill((0, 0, 0))
-            r_o = copy(room_objects)
-            for cords, room in r_o.items():
+            for cords, room in room_objects.items():
                 if camera.repr_tiled_area().collidepoint(cords[0] * rs.room_size[0], cords[1] * rs.room_size[1]):
                     room.draw(s, (cords[0] * rs.room_size[0], cords[1] * rs.room_size[1]), camera)
             sub = s.subsurface(camera.centred_rectangle)

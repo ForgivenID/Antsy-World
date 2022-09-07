@@ -176,7 +176,7 @@ class _WorldGen:
             generated_tiles.update(self.generate_noise(l_room_seed,
                                                        offset_x=local_rn[i][0],
                                                        offset_y=local_rn[i][1]))
-        for _ in range(2):
+        for _ in range(6):
             for _cords in generated_tiles.keys():
                 c = _neighbors(_cords[0], _cords[1], generated_tiles)
                 if generated_tiles[_cords] and c < 3:
