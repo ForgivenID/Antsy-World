@@ -27,8 +27,8 @@ class Camera(pg.Surface):
         self.friction = pg.math.Vector3(-.12, -.12, -.2)
         self.acceleration = pg.math.Vector3(0, 0, 0)
         self.max_velocity = pg.math.Vector3(1, 1, 1)
-        self.max_position = pg.math.Vector3(2000, 2000, 6)
-        self.min_position = pg.math.Vector3(-1000, -1000, 0.45)
+        self.max_position = pg.math.Vector3(4500, 4500, 6)
+        self.min_position = pg.math.Vector3(0, 0, 0.45)
 
     def update(self, dt):
         self.movement(dt)
@@ -162,13 +162,13 @@ class RenderThread(thr.Thread):
                     case pg.QUIT:
                         self.halt()
                 if events[pg.K_w]:
-                    camera.local_move_y(-.6)
+                    camera.local_move_y(-1)
                 elif events[pg.K_s]:
-                    camera.local_move_y(.6)
+                    camera.local_move_y(1)
                 if events[pg.K_a]:
-                    camera.local_move_x(-.6)
+                    camera.local_move_x(-1)
                 elif events[pg.K_d]:
-                    camera.local_move_x(.6)
+                    camera.local_move_x(1)
                 if events[pg.K_r]:
                     camera.local_zoom(0.025)
                 elif events[pg.K_f]:
