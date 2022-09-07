@@ -27,8 +27,8 @@ class Camera(pg.Surface):
         self.friction = pg.math.Vector3(-.12, -.12, -.2)
         self.acceleration = pg.math.Vector3(0, 0, 0)
         self.max_velocity = pg.math.Vector3(1, 1, 1)
-        self.max_position = pg.math.Vector3(1000, 1000, 6)
-        self.min_position = pg.math.Vector3(-1000, -1000, 0.6)
+        self.max_position = pg.math.Vector3(2000, 2000, 6)
+        self.min_position = pg.math.Vector3(-1000, -1000, 0.45)
 
     def update(self, dt):
         self.movement(dt)
@@ -43,12 +43,18 @@ class Camera(pg.Surface):
             self.position.x = max(self.position.x, self.min_position.x)
             self.position.y = max(self.position.y, self.min_position.y)
             self.position.z = max(self.position.z, self.min_position.z)
-        print(self.position.z)
 
     @property
     def fov_rectangle(self):
         return pg.Rect(self.position.x - (self.get_width() * self.position.z / 2),
                        self.position.y - (self.get_height() * self.position.z / 2),
+                       (self.get_width() * self.position.z),
+                       (self.get_height() * self.position.z))
+
+    @property
+    def centred_rectangle(self):
+        return (1000 - (self.get_width() * self.position.z / 2),
+                       1000 - (self.get_height() * self.position.z / 2),
                        (self.get_width() * self.position.z),
                        (self.get_height() * self.position.z))
 
@@ -93,8 +99,8 @@ class Camera(pg.Surface):
         self.velocity.x = max(-self.max_velocity.x, min(self.velocity.x, self.max_velocity.x))
         self.velocity.y = max(-self.max_velocity.y, min(self.velocity.y, self.max_velocity.y))
         self.velocity.z = max(-self.max_velocity.z, min(self.velocity.z, self.max_velocity.z))
-        if abs(self.velocity.x) < .01: self.velocity.x = 0
-        if abs(self.velocity.y) < .01: self.velocity.y = 0
+        if abs(self.velocity.x) < .005: self.velocity.x = 0
+        if abs(self.velocity.y) < .005: self.velocity.y = 0
         if abs(self.velocity.z) < .01: self.velocity.z = 0
 
     def get_cords(self):
@@ -118,7 +124,7 @@ class DrawThread(thr.Thread):
 
         color = (0, 100, 0)
         scene = BaseScene()
-        s = pg.Surface((2000, 2000))
+        s = pg.Surface((6000, 6000))
         while not _escaped:
             dt = self.clock.tick(rs.framerate) * .001 * rs.framerate
             camera.update(dt)
@@ -128,13 +134,9 @@ class DrawThread(thr.Thread):
             for cords, room in r_o.items():
                 if camera.repr_tiled_area().collidepoint(cords[0] * rs.room_size[0], cords[1] * rs.room_size[1]):
                     room.draw(s, (cords[0] * rs.room_size[0], cords[1] * rs.room_size[1]), camera)
-            pg.draw.rect(s, (255, 0, 0), camera.fov_rectangle, 3)
-            pg.draw.rect(s, (0, 255, 0), camera.fod_rectangle, 1)
-            pg.draw.rect(s, (0, 0, 255), camera.repr_tiled_area(), 1)
-            resized = pg.transform.smoothscale(s, (s.get_width() / camera.position.z, s.get_height() / camera.position.z))
-            self.display.blit(resized,
-                (500-(s.get_width() / camera.position.z / 2),
-                 500-(s.get_height() / camera.position.z / 2)))
+            sub = s.subsurface(camera.centred_rectangle)
+            resized = pg.transform.smoothscale(sub, (self.display.get_width(), self.display.get_height()))
+            self.display.blit(resized, (0, 0))
             # self.display.blit(camera.get_surface(scene), (0, 0))
             pg.display.flip()
 
@@ -176,7 +178,6 @@ class RenderThread(thr.Thread):
             # print(known_rooms)
             for k, v in known_rooms['new'].items():
                 if k not in known_rooms['known']:
-                    print('got dripp')
                     room_objects[k] = Room()
                     res = room_objects[k].update(v)
                 else:

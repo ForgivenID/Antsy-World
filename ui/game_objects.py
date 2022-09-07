@@ -56,5 +56,5 @@ class Room:
         return 0
 
     def draw(self, screen: pg.Surface, cords, camera):
-        screen.blit(self.surface, (cords[0]-camera.position.x+500, cords[1]-camera.position.y+500))
+        screen.blit(self.surface, (cords[0]-camera.position.x+1000, cords[1]-camera.position.y+1000))
         [entity.draw(screen) for entity in self.entities.values()]
