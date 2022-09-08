@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pygame as pg
 
+from misc.Paths import cwd
 from misc.ProjSettings import RenderingSettings as rs
 
 
@@ -16,7 +17,7 @@ class ImageSurface:
     def __init__(self, name='unspecified', image_type=1):
         # resources/sprites/NormalWall/NormalWall1.png
         self.surface = None
-        self.image = pg.image.load(Path('resources/sprites', name, name + str(image_type) + '.png'))
+        self.image = pg.image.load(Path(cwd, 'resources/sprites', name, name + str(image_type) + '.png'))
 
     def convert(self):
         self.surface = self.image.convert()
