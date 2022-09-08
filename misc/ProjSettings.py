@@ -1,6 +1,7 @@
 import datetime
 import uuid
 from win32api import GetSystemMetrics
+import random as rn
 
 
 class WorldSettings:
@@ -10,8 +11,7 @@ class WorldSettings:
     portals: int = 2
     starting_colonies: int = 3
     name: str = str(uuid.uuid4())
-    seed: str = str(uuid.uuid4())
-
+    seed: str = str(rn.randint(1000, 9999))
 
 # ---
 
@@ -79,7 +79,7 @@ class SimSettings:
 
 class RenderingSettings:
     rendering_distance: int = 10
-    framerate: int = 30
+    framerate: int = 80
     fullscreen: bool = False
     window_size: tuple[int, int] = (1000, 1000)
     resolution: tuple[int, int] = (GetSystemMetrics(0), GetSystemMetrics(1))

@@ -1,6 +1,8 @@
 import threading as thr
 import uuid
 
+from logic.genome import Genome
+
 
 class Tile:
     def __init__(self):
@@ -34,3 +36,4 @@ class BaseEntity(thr.Thread):
 class Ant(BaseEntity):
     def __init__(self, cords: tuple[int, int], rotation=0):
         super(Ant, self).__init__(cords, rotation)
+        self.genome = Genome()

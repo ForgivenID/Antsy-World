@@ -1,5 +1,6 @@
+import multiprocessing
 import threading as thr
-from copy import copy
+import time
 from math import ceil
 
 import pygame as pg
@@ -10,7 +11,6 @@ from ui.game_objects import Room
 
 _escaped = False
 events = {}
-draw_requests = []
 known_rooms = {'new': {}, 'known': {}}
 room_objects = {}
 
@@ -54,9 +54,9 @@ class Camera(pg.Surface):
     @property
     def centred_rectangle(self):
         return (1000 - (self.get_width() * self.position.z / 2),
-                       1000 - (self.get_height() * self.position.z / 2),
-                       (self.get_width() * self.position.z),
-                       (self.get_height() * self.position.z))
+                1000 - (self.get_height() * self.position.z / 2),
+                (self.get_width() * self.position.z),
+                (self.get_height() * self.position.z))
 
     @property
     def fod_rectangle(self):
@@ -101,7 +101,7 @@ class Camera(pg.Surface):
         self.velocity.z = max(-self.max_velocity.z, min(self.velocity.z, self.max_velocity.z))
         if abs(self.velocity.x) < .005: self.velocity.x = 0
         if abs(self.velocity.y) < .005: self.velocity.y = 0
-        if abs(self.velocity.z) < .01: self.velocity.z = 0
+        if abs(self.velocity.z) < .001: self.velocity.z = 0
 
     def get_cords(self):
         pass
@@ -112,7 +112,7 @@ camera = Camera()
 
 class DrawThread(thr.Thread):
     def __init__(self):
-        super(DrawThread, self).__init__()
+        super(DrawThread, self).__init__(name='Antsy Drawer', daemon=True)
         self.clock = pg.time.Clock()
         if rs.fullscreen:
             self.display = pg.display.set_mode(size=(0, 0), flags=pg.FULLSCREEN | pg.DOUBLEBUF | pg.HWACCEL)
@@ -120,19 +120,27 @@ class DrawThread(thr.Thread):
             self.display = pg.display.set_mode(size=rs.window_size, flags=pg.RESIZABLE if rs.resizable else 0)
         Objects.convert_images()
         self.halted = thr.Event()
+        self.updating = thr.Event()
 
     def run(self):
 
         color = (0, 100, 0)
         scene = BaseScene()
-        s = pg.Surface((6000, 6000))
+        s = pg.Surface((self.display.get_width(), self.display.get_height()))
+        size = (0, 0)
         while not self.halted.is_set():
+            if size != (self.display.get_width() * 10, self.display.get_height() * 10):
+                s = pg.Surface((self.display.get_width() * 10, self.display.get_height() * 10))
+                size = (self.display.get_width() * 10, self.display.get_height() * 10)
             dt = self.clock.tick(rs.framerate) * .001 * rs.framerate
             camera.update(dt)
-            s.fill((0, 0, 0))
             for cords, room in room_objects.items():
-                if camera.repr_tiled_area().collidepoint(cords[0] * rs.room_size[0], cords[1] * rs.room_size[1]):
-                    room.draw(s, (cords[0] * rs.room_size[0], cords[1] * rs.room_size[1]), camera)
+                if self.updating.is_set():
+                    break
+                if camera.repr_tiled_area().collidepoint(cords[0] * rs.room_size[0],
+                                                         cords[1] * rs.room_size[1]) and not room.drawn:
+                    room.draw(s, (cords[0] * rs.room_size[0],
+                                  cords[1] * rs.room_size[1]), camera)
             sub = s.subsurface(camera.centred_rectangle)
             resized = pg.transform.smoothscale(sub, (self.display.get_width(), self.display.get_height()))
             self.display.blit(resized, (0, 0))
@@ -143,10 +151,9 @@ class DrawThread(thr.Thread):
         self.halted.set()
 
 
-class RenderThread(thr.Thread):
+class RenderThread(multiprocessing.Process):
     def __init__(self, manager):
-        super(RenderThread, self).__init__(name='Antsy Rendering')
-        self.clock = pg.time.Clock()
+        super(RenderThread, self).__init__(name='Antsy Rendering', daemon=True)
         self.manager = manager
         pg.init()
 
@@ -172,13 +179,14 @@ class RenderThread(thr.Thread):
                 elif events[pg.K_d]:
                     camera.local_move_x(1)
                 if events[pg.K_r]:
-                    camera.local_zoom(0.025)
+                    camera.local_zoom(0.005)
                 elif events[pg.K_f]:
-                    camera.local_zoom(-0.025)
+                    camera.local_zoom(-0.005)
             self.manager.set_camera_boundaries(camera.tiled_area)
-            known_rooms['new'].update(self.manager.get_rooms())
+            new = self.manager.get_rooms()
             # print(known_rooms)
-            for k, v in known_rooms['new'].items():
+            draw_thr.updating.set()
+            for k, v in new.items():
                 if k not in known_rooms['known']:
                     room_objects[k] = Room()
                     res = room_objects[k].update(v)
@@ -186,15 +194,14 @@ class RenderThread(thr.Thread):
                     res = room_objects[k].update(v)
                 if not res:
                     known_rooms['known'][k] = v
-
-            self.clock.tick(rs.framerate // 2)
+            draw_thr.updating.clear()
+            time.sleep(1 / (rs.framerate / 3))
         self.halt()
         draw_thr.halt()
-        draw_thr.join(timeout=4)
+        draw_thr.join()
         pg.display.quit()
         print('pgquit')
         pg.quit()
-
 
     def halt(self):
         global _escaped

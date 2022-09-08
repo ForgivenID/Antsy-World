@@ -43,8 +43,7 @@ if __name__ == '__main__':
     rendering.start()
     print(0)
     logistics.join()
-    print(1)
     rendering.halt()
-    print(2)
-    rendering.join()
-    print(3)
+    rendering.terminate()
+
+

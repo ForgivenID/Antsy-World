@@ -4,6 +4,7 @@ import hashlib
 import multiprocessing as mp
 import random as rnd
 import threading as thr
+import time
 from functools import cache, lru_cache
 
 from misc import ProjSettings
@@ -202,12 +203,9 @@ class _WorldGen:
         i = 0
 
         while not self.halted.is_set():
-            while self.requests.empty():
-                if self.halted.is_set():
-                    break
+            request = self.requests.get()
             if self.halted.is_set():
                 break
-            request = self.requests.get()
             i += 1
             cords = (request[0], request[1])
             if cords in self.generated:
@@ -230,6 +228,8 @@ class _WorldGenThread(_WorldGen, thr.Thread):
 
     def __init__(self, room_options, seed, output):
         super().__init__(room_options=room_options, seed=seed, output=output)
+        self.daemon = True
+        self.name = '_WorldGenThread'
 
 
 class _WorldGenProcess(_WorldGen, mp.Process):
@@ -239,6 +239,8 @@ class _WorldGenProcess(_WorldGen, mp.Process):
 
     def __init__(self, room_options, seed, output):
         super().__init__(room_options=room_options, seed=seed, output=output)
+        self.daemon = True
+        self.name = '_WorldGenProcess'
 
 
 class WorldGenHandler:
@@ -309,6 +311,7 @@ class WorldGenHandlerProcess(_WorldGenHandler, mp.Process):
     def __init__(self, world_options):
         mp.Process.__init__(self)
         _WorldGenHandler.__init__(self, world_options)
+        self.name = 'WorldGenHandlerProcess'
         self.worker = _WorldGenThread
         self.workers_amount = self.world_options.generator_threads
 
@@ -322,4 +325,5 @@ class WorldGenHandlerThread(_WorldGenHandler, thr.Thread):
     def __init__(self, world_options):
         thr.Thread.__init__(self)
         _WorldGenHandler.__init__(self, world_options)
+        self.name = 'WorldGenHandlerThread'
         self.workers_amount = self.world_options.generator_processes

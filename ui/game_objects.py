@@ -36,9 +36,11 @@ class Room:
         self.data = {'tiles': {}}
         self.entities = {}
         self.surface = pg.Surface(rs.room_size)
+        self.drawn = False
 
     def update(self, data) -> int:
         if 'tiles' in data and data['tiles'] != self.data['tiles']:
+            self.drawn = False
             for cords, tile in data['tiles'].items():
                 if cords not in self.data['tiles'] or self.data['tiles'][cords] != tile:
                     if self.surface.get_locked():
@@ -55,6 +57,9 @@ class Room:
                     self.data['tiles'][cords] = tile
         return 0
 
+    def visibility_set(self, b: bool):
+        self.visible = b
+
     def draw(self, screen: pg.Surface, cords, camera):
-        screen.blit(self.surface, (cords[0]-camera.position.x+1000, cords[1]-camera.position.y+1000))
+        screen.blit(self.surface, (cords[0] - camera.position.x + 1000, cords[1] - camera.position.y + 1000))
         [entity.draw(screen) for entity in self.entities.values()]
