@@ -22,8 +22,9 @@ class LogicProcess(mp.Process):
         self.generator.start()
         while not self.manager.halted.is_set():
             self.update()
-        print('went wrong')
         self.generator.halt()
+        self.generator.join(timeout=3)
+        print('ended')
 
     def update(self):
         while not self.generator.output.empty():

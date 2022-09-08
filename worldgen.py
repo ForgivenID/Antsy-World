@@ -112,6 +112,7 @@ class _WorldGen:
 
     def __init__(self, room_options, seed, output):
         super().__init__()
+        self.halted = mp.Event()
         self.room_options = room_options
         self.width, self.height = self.room_options.dimensions
         self.seed = seed
@@ -200,7 +201,13 @@ class _WorldGen:
                  int.from_bytes(str(self.seed).encode('utf-8'), 'little')
         i = 0
 
-        for request in iter(self.requests.get, None):
+        while not self.halted.is_set():
+            while self.requests.empty():
+                if self.halted.is_set():
+                    break
+            if self.halted.is_set():
+                break
+            request = self.requests.get()
             i += 1
             cords = (request[0], request[1])
             if cords in self.generated:
@@ -210,11 +217,10 @@ class _WorldGen:
             self.generated.append(cords)
             if not (i % 60):
                 gc.collect()
-
-        self.kill()
+        print('eie')
 
     def kill(self):
-        pass
+        self.halted.set()
 
 
 class _WorldGenThread(_WorldGen, thr.Thread):
@@ -290,8 +296,8 @@ class _WorldGenHandler:
         self.distributor = SimpleDistributor(self.workers, _WorldGen.request)
         [worker.start() for worker in self.workers]
         [self.distributor(*request) for request in iter(self.requests.get, None)]
-        [worker.requests.put(None) for worker in self.workers]
-        [worker.join() for worker in self.workers]
+        [worker.kill() for worker in self.workers]
+        [worker.join(timeout = 2) for worker in self.workers]
 
 
 class WorldGenHandlerProcess(_WorldGenHandler, mp.Process):

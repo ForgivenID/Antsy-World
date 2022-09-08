@@ -41,6 +41,10 @@ if __name__ == '__main__':
 
     rendering = RenderThread(manager)
     rendering.start()
+    print(0)
     logistics.join()
+    print(1)
     rendering.halt()
+    print(2)
     rendering.join()
+    print(3)

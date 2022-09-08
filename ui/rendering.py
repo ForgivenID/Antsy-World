@@ -119,13 +119,14 @@ class DrawThread(thr.Thread):
         else:
             self.display = pg.display.set_mode(size=rs.window_size, flags=pg.RESIZABLE if rs.resizable else 0)
         Objects.convert_images()
+        self.halted = thr.Event()
 
     def run(self):
 
         color = (0, 100, 0)
         scene = BaseScene()
         s = pg.Surface((6000, 6000))
-        while not _escaped:
+        while not self.halted.is_set():
             dt = self.clock.tick(rs.framerate) * .001 * rs.framerate
             camera.update(dt)
             s.fill((0, 0, 0))
@@ -137,6 +138,9 @@ class DrawThread(thr.Thread):
             self.display.blit(resized, (0, 0))
             # self.display.blit(camera.get_surface(scene), (0, 0))
             pg.display.flip()
+
+    def halt(self):
+        self.halted.set()
 
 
 class RenderThread(thr.Thread):
@@ -185,9 +189,12 @@ class RenderThread(thr.Thread):
 
             self.clock.tick(rs.framerate // 2)
         self.halt()
-        draw_thr.join()
+        draw_thr.halt()
+        draw_thr.join(timeout=4)
         pg.display.quit()
+        print('pgquit')
         pg.quit()
+
 
     def halt(self):
         global _escaped
