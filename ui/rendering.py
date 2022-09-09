@@ -128,6 +128,7 @@ class DrawThread(thr.Thread):
         scene = BaseScene()
         s = pg.Surface((self.display.get_width(), self.display.get_height()))
         size = (0, 0)
+        pg.event.pump()
         while not self.halted.is_set():
             if size != (self.display.get_width() * 10, self.display.get_height() * 10):
                 s = pg.Surface((self.display.get_width() * 10, self.display.get_height() * 10))
@@ -162,7 +163,7 @@ class RenderThread(multiprocessing.Process):
         draw_thr = DrawThread()
 
         draw_thr.start()
-
+        pg.display.set_caption('AntsyWorld')
         while not _escaped and not self.manager.halted.is_set():
 
             for event in pg.event.get():
