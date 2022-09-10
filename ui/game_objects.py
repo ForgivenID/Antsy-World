@@ -18,7 +18,7 @@ class ImageSurface:
         # resources/sprites/NormalWall/NormalWall1.png
         self.surface = None
         self.image = pg.image.load(Path(cwd, 'resources/sprites', name, name + str(image_type) + '.png'))
-        self.image = pg.transform.scale(self.image, (self.image.get_width()*3, self.image.get_height()*3))
+        self.image = pg.transform.scale(self.image, (self.image.get_width() * 3, self.image.get_height() * 3))
         self.image.set_colorkey((0, 0, 0))
 
     def convert(self):
