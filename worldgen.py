@@ -4,7 +4,6 @@ import hashlib
 import multiprocessing as mp
 import random as rnd
 import threading as thr
-import time
 from functools import cache, lru_cache
 
 from misc import ProjSettings
@@ -47,7 +46,7 @@ def _neighbors(x, y, d, bx=ProjSettings.RoomSettings.dimensions[0], by=ProjSetti
     return i
 
 
-@lru_cache(maxsize=20)
+@lru_cache(maxsize=120)
 def _room_neighbors(x, y):
     output = {}
     nr = _n_room_neighbors()
@@ -299,7 +298,7 @@ class _WorldGenHandler:
         [worker.start() for worker in self.workers]
         [self.distributor(*request) for request in iter(self.requests.get, None)]
         [worker.kill() for worker in self.workers]
-        [worker.join(timeout = 2) for worker in self.workers]
+        [worker.join(timeout=2) for worker in self.workers]
 
 
 class WorldGenHandlerProcess(_WorldGenHandler, mp.Process):

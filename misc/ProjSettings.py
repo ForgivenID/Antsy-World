@@ -1,7 +1,8 @@
 import datetime
-import uuid
-from win32api import GetSystemMetrics
 import random as rn
+import uuid
+
+from win32api import GetSystemMetrics
 
 
 class WorldSettings:
@@ -12,6 +13,7 @@ class WorldSettings:
     starting_colonies: int = 3
     name: str = str(uuid.uuid4())
     seed: str = str(rn.randint(1000, 9999))
+
 
 # ---
 
@@ -87,3 +89,21 @@ class RenderingSettings:
                                   RoomSettings.dimensions[1] * TileSettings.dimensions[1])
     tile_size: tuple[int, int] = TileSettings.dimensions
     resizable: bool = True
+
+
+class GenomeSettings:
+    module_restrictions = {
+        'movement': (0, 3),
+        'rotation': (0, 2),
+        'brain': (0, 1),
+        'additional_cpu': (0, 3),
+        'pickaxe': (0, 10),
+        'sleepy_mode': (0, 15),
+        'exploration': (0, 2),
+    }
+    max_brain_axons = 15
+    starting_brain_axons = 6
+    new_axon_mutation = 0.08
+    axon_degeneration = 0.005
+    function_mutation = 0.15
+    weight_mutation = 0.1

@@ -13,6 +13,7 @@ _escaped = False
 events = {}
 known_rooms = {'new': {}, 'known': {}}
 room_objects = {}
+entities = []
 
 
 def toFixed(numObj, digits=0):
@@ -159,7 +160,7 @@ class RenderThread(multiprocessing.Process):
         pg.init()
 
     def run(self) -> None:
-        global _escaped, events, known_rooms
+        global _escaped, events, known_rooms, entities
         draw_thr = DrawThread()
 
         draw_thr.start()

@@ -1,5 +1,5 @@
 import multiprocessing as mp
-from queue import Queue
+
 from logic.logistics import LogicProcess
 from misc import ProjSettings
 
@@ -7,6 +7,7 @@ from misc import ProjSettings
 class Manager:
     def __init__(self):
         self.render_queue: mp.Queue = mp.Queue(maxsize=1)
+        self.entities_queue: mp.Queue = mp.Queue(maxsize=1)
         self.logic_queue: mp.Queue = mp.Queue(maxsize=1)
         self.halted: mp.Event = mp.Event()
 
@@ -26,9 +27,18 @@ class Manager:
         return {}
 
     def set_rooms(self, rooms):
-        # print(rooms) if rooms != {} else None
         if self.logic_queue.empty():
             self.logic_queue.put(rooms)
+
+    def set_entities(self, entities):
+        if self.entities_queue.empty():
+            self.entities_queue.put(entities)
+
+    def get_entities(self):
+        if not self.entities_queue.empty():
+            data = self.entities_queue.get()
+            return data
+        return {}
 
 
 if __name__ == '__main__':
@@ -45,5 +55,3 @@ if __name__ == '__main__':
     logistics.join()
     rendering.halt()
     rendering.terminate()
-
-

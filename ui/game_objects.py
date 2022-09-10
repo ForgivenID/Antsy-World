@@ -34,7 +34,7 @@ def convert_images():
 
 class Room:
     def __init__(self):
-        self.data = {'tiles': {}}
+        self.data = {'tiles': {}, 'entities': {}}
         self.entities = {}
         self.surface = pg.Surface(rs.room_size)
         self.drawn = False
@@ -56,6 +56,11 @@ class Room:
                         case 'NormalFloor':
                             self.surface.blit(floor.surface, (cords[0] * rs.tile_size[0], cords[1] * rs.tile_size[1]))
                     self.data['tiles'][cords] = tile
+        if 'entities' in data and data['entities'] != self.data['entities']:
+            for entity in data['entities']:
+                pg.draw.rect(self.surface, (255, 0, 0),
+                             pg.Rect(entity.cords[0] * rs.tile_size[0], entity.cords[1] * rs.tile_size[1], 5, 5))
+            self.data['entities'] = data['entities']
         return 0
 
     def visibility_set(self, b: bool):
