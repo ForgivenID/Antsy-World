@@ -60,7 +60,7 @@ RngRoomTypes = [NormalRoomSettings, DesertRoomSettings, ForestRoomSettings]
 # ---
 
 class TileSettings:
-    dimensions: tuple[int, int] = (10, 10)
+    dimensions: tuple[int, int] = (30, 30)
     name: str = str(uuid.uuid4())
 
 

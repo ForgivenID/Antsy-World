@@ -15,6 +15,9 @@ known_rooms = {'new': {}, 'known': {}}
 room_objects = {}
 entities = []
 
+pg.font.init()
+font = pg.font.Font(None, 36)
+
 
 def toFixed(numObj, digits=0):
     return float(f"{numObj:.{digits}f}")
@@ -23,12 +26,12 @@ def toFixed(numObj, digits=0):
 class Camera(pg.Surface):
     def __init__(self):
         super(Camera, self).__init__(size=rs.resolution if rs.fullscreen else rs.window_size)
-        self.position, self.velocity = pg.math.Vector3(1000, 1000, 1), pg.math.Vector3(0, 0, 0)
+        self.position, self.velocity = pg.math.Vector3(3000, 3000, 1), pg.math.Vector3(0, 0, 0)
         self.d_position = pg.math.Vector3(0, 0, 0)
         self.friction = pg.math.Vector3(-.12, -.12, -.2)
         self.acceleration = pg.math.Vector3(0, 0, 0)
         self.max_velocity = pg.math.Vector3(1, 1, 1)
-        self.max_position = pg.math.Vector3(4500, 4500, 2)
+        self.max_position = pg.math.Vector3(4500, 4500, 4)
         self.min_position = pg.math.Vector3(0, 0, 0.45)
 
     def update(self, dt):
@@ -54,8 +57,8 @@ class Camera(pg.Surface):
 
     @property
     def centred_rectangle(self):
-        return (1000 - (self.get_width() * self.position.z / 2),
-                1000 - (self.get_height() * self.position.z / 2),
+        return (3000 - (self.get_width() * self.position.z / 2),
+                3000 - (self.get_height() * self.position.z / 2),
                 (self.get_width() * self.position.z),
                 (self.get_height() * self.position.z))
 
@@ -102,7 +105,7 @@ class Camera(pg.Surface):
         self.velocity.z = max(-self.max_velocity.z, min(self.velocity.z, self.max_velocity.z))
         if abs(self.velocity.x) < .005: self.velocity.x = 0
         if abs(self.velocity.y) < .005: self.velocity.y = 0
-        if abs(self.velocity.z) < .001: self.velocity.z = 0
+        if abs(self.velocity.z) < .002: self.velocity.z = 0
 
     def get_cords(self):
         pass
@@ -127,27 +130,57 @@ class DrawThread(thr.Thread):
 
         color = (0, 100, 0)
         scene = BaseScene()
-        s = pg.Surface((self.display.get_width(), self.display.get_height()))
+        s = pg.Surface((6000, 6000))
         size = (0, 0)
         pg.event.pump()
+        frametime_buffer = 0
+        frame_counter = 0
+        avg_fps = rs.framerate
+        avg_frametime = frametime_buffer / 100
+        avg_fps = '000'
+        rpf = '000'
+        frametime_buffer = 0
+        room_per_frame = 0
+        self.display.set_alpha(None)
+        fps_text = font.render(avg_fps, True, (255, 0, 0))
+        rpf_text = font.render(rpf, True, (255, 0, 0))
         while not self.halted.is_set():
+            room_per_frame = 0
+            frame_counter += 1
             if size != (self.display.get_width() * 10, self.display.get_height() * 10):
                 s = pg.Surface((self.display.get_width() * 10, self.display.get_height() * 10))
                 size = (self.display.get_width() * 10, self.display.get_height() * 10)
-            dt = self.clock.tick(rs.framerate) * .001 * rs.framerate
+            last_frame_took = self.clock.tick(rs.framerate) * .001
+            dt = last_frame_took * rs.framerate
             camera.update(dt)
             for cords, room in room_objects.items():
                 if self.updating.is_set():
                     break
                 if camera.repr_tiled_area().collidepoint(cords[0] * rs.room_size[0],
-                                                         cords[1] * rs.room_size[1]) and not room.drawn:
-                    room.draw(s, (cords[0] * rs.room_size[0],
-                                  cords[1] * rs.room_size[1]), camera)
+                                                         cords[1] * rs.room_size[1]):
+                    if not room.drawn:
+                        room.draw_tiles(s, (cords[0] * rs.room_size[0],
+                                      cords[1] * rs.room_size[1]), camera)
+                    if not room.entities_drawn:
+                        room.draw_entities(s, (cords[0] * rs.room_size[0],
+                                          cords[1] * rs.room_size[1]), camera)
+                    room_per_frame += 1
             sub = s.subsurface(camera.centred_rectangle)
             resized = pg.transform.smoothscale(sub, (self.display.get_width(), self.display.get_height()))
             self.display.blit(resized, (0, 0))
             # self.display.blit(camera.get_surface(scene), (0, 0))
+            frametime_buffer += last_frame_took
+            if frame_counter % 100 == 0:
+                avg_frametime = frametime_buffer / 100
+                avg_fps = str(int(1 // avg_frametime))
+                frametime_buffer = 0
+                rpf = str(room_per_frame)
+                fps_text = font.render(avg_fps, True, (255, 0, 0))
+                rpf_text = font.render(rpf, True, (255, 0, 0))
+            self.display.blit(fps_text, fps_text.get_rect(topleft=(0, 0)))
+            self.display.blit(rpf_text, fps_text.get_rect(bottomleft=(0, self.display.get_height())))
             pg.display.flip()
+
 
     def halt(self):
         self.halted.set()
@@ -165,6 +198,7 @@ class RenderThread(multiprocessing.Process):
 
         draw_thr.start()
         pg.display.set_caption('AntsyWorld')
+        pg.event.set_allowed([pg.QUIT, pg.KEYDOWN, pg.KEYUP])
         while not _escaped and not self.manager.halted.is_set():
 
             for event in pg.event.get():
