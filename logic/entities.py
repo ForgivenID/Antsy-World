@@ -2,6 +2,7 @@ import math
 import threading as thr
 import uuid
 from functools import lru_cache, cache
+import random as rn
 
 from logic.genome import Genome
 from misc import ProjSettings
@@ -65,8 +66,9 @@ class Ant(BaseEntity):
         self.sensory_types = ['age', 'my_energy', 'neighbour_count', 'room_population', 'fwd_view', 'obstacle_circle']
         self.reactivity_types = ['move_fwd', 'rotate-', 'rotate+']
         self.energy = 100
-        self.room['entities'].append(self)
+        self.room['entities'][id(self)] = {'cords': self.cords, 'rotation': self.rotation}
         self.genome = Genome(self)
+        self.rotation = rn.randint(0, 8) * 90
 
     def get_sensory_val(self, sense):
         match sense:
@@ -88,10 +90,10 @@ class Ant(BaseEntity):
         return 0
 
     def perform(self, action):
-        match action:
+        match action[0]:
             case 'move_fwd':
-                x = self.cords[0] + math.cos(math.radians(self.rotation))
-                y = self.cords[1] - math.sin(math.radians(self.rotation))
+                x = int(round(self.cords[0] + math.cos(math.radians(self.rotation))))
+                y = int(round(self.cords[1] - math.sin(math.radians(self.rotation))))
                 if (x + self.cords[0], y + self.cords[1]) in self.room['tiles']:
                     if self.room['tiles'][(x, y)]['object'] != 'NormalWall':
                         self.cords = (x, y)
@@ -99,6 +101,7 @@ class Ant(BaseEntity):
                 self.rotation -= 90
             case 'rotate+':
                 self.rotation += 90
+        self.room['entities'][id(self)] = {'cords': self.cords, 'rotation': self.rotation}
 
     def logic(self, tick):
         self.age += 0.1

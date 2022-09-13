@@ -1,5 +1,6 @@
 import multiprocessing as mp
-
+from pathlib import Path
+import pickle as pk
 from logic.logistics import LogicProcess
 from misc import ProjSettings
 
@@ -45,13 +46,93 @@ if __name__ == '__main__':
     mp.current_process().name = "Antsy World"
 
     manager = Manager()
-    logistics = LogicProcess(ProjSettings.SimSettings(), ProjSettings.WorldSettings(), manager)
-    logistics.start()
-    from ui.rendering import RenderThread
+    cmd = ''
+    print('--ANTSY WORLD (RENDER/SIM SEPARATED) SIMULATION MANAGER--')
+    print('[Use "help" if you are not familiar with this UI]\n')
+    processes = {}
+    while True:
 
-    rendering = RenderThread(manager)
-    rendering.start()
-    print(0)
-    logistics.join()
-    rendering.halt()
-    rendering.terminate()
+        match cmd:
+            case ['help' | 'h', *args]:
+                match args:
+                    case ['quit']:
+                        print('quit -> exit all simulation and view windows, stop the program.')
+                    case ['simulation' | 'sim', *args1]:
+                        match args1:
+                            case ['start']:
+                                print('simulation start <sim_name> <TPS> -> start new simulation',
+                                      'with name <sim_name> and tickspeed <TPS>', sep='\n')
+                            case ['load']:
+                                print('simulation load <sim_name> <TPS> -> continue simulation',
+                                      'with name <sim_name> and tickspeed <TPS>', sep='\n')
+                            case ['view']:
+                                print('simulation view <sim_name> <TPS> <FPS> -> load and view simulation',
+                                      'with name <sim_name> and tickspeed <TPS>,',
+                                      'video will be shown with <FPS> framerate',
+                                      sep='\n')
+                            case []:
+                                print('simulation <*args> -> start, continue or review simulations.',
+                                      'possible <*args>: start, load, view.',
+                                      'use - help simulation <*args> - to see more.', sep='\n')
+                    case [] | ['help' | 'h']:
+                        print('help <f_name> -> print info about a command.',
+                              'possible <f_name>: help, simulation, quit.', sep='\n')
+                    case _:
+                        print(f'provided command "{" ".join(cmd)}" is not recognised as SimM functionality.')
+                        print(f'proper usage of "{cmd[0]}":')
+                        cmd = ['help', cmd[0]]
+                        continue
+            case ['simulation' | 'sim', *args]:
+                match args:
+                    case ['start', *args1]:
+                        if len(args1) != 2:
+                            print('unexpected arguments were provided.')
+                            print(f'proper usage of "{cmd[0]} {cmd[1]}":')
+                            cmd = ['help', 'simulation', 'start']
+                            continue
+                        sim_settings = ProjSettings.SimSettings()
+                        sim_settings.name = cmd[2]
+                        room_settings = ProjSettings.WorldSettings()
+                        room_settings.name = cmd[2]
+                        logistics = LogicProcess(sim_settings, room_settings, manager)
+                        processes[cmd[2]] = logistics
+                        logistics.start()
+                    case ['load', *args1]:
+                        if len(args1) != 2:
+                            print('unexpected arguments were provided.')
+                            print(f'proper usage of "{cmd[0]} {cmd[1]}":')
+                            cmd = ['help', 'simulation', 'load']
+                            continue
+                        sim_settings = ProjSettings.SimSettings()
+                        sim_settings.name = cmd[2]
+                        room_settings = ProjSettings.WorldSettings()
+                        room_settings.name = cmd[2]
+                        logistics = LogicProcess(sim_settings, room_settings, manager)
+                        try:
+                            with open(Path('saves', cmd[2], cmd[2], 'data.pk'), 'rb') as save:
+                                data = pk.load(save)
+                                logistics.world = data['rooms_data'],
+                                logistics.world_settings = data['settings']
+                                logistics.tick = data['tick']
+                        except Exception as exc:
+                            print(f'while opening, an exception was raised:\n{exc}')
+
+                        processes[cmd[2]] = logistics
+                        logistics.start()
+                    case _:
+                        print(f'provided command "{" ".join(cmd)}" is not recognised as SimM functionality.')
+                        print(f'proper usage of "{cmd[0]}":')
+                        cmd = ['help', cmd[0]]
+                        continue
+            case ['quit']:
+                for name, process in processes.items():
+                    print(f'quitting process "{name}" -- {process}')
+                    process.join(2)
+                    process.terminate()
+                exit(0)
+        cmd = input('>> ').split()
+
+    for name, process in processes.items():
+        print('quitting', name)
+        process.join(2)
+        process.terminate()
