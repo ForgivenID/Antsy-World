@@ -9,6 +9,8 @@ import ui.game_objects as Objects
 from misc.ProjSettings import RenderingSettings as rs
 from ui.game_objects import Room
 
+import gc
+
 _escaped = False
 events = {}
 known_rooms = {'new': {}, 'known': {}}
@@ -30,8 +32,8 @@ class Camera(pg.Surface):
         self.d_position = pg.math.Vector3(0, 0, 0)
         self.friction = pg.math.Vector3(-.12, -.12, -.2)
         self.acceleration = pg.math.Vector3(0, 0, 0)
-        self.max_velocity = pg.math.Vector3(1, 1, 1)
-        self.max_position = pg.math.Vector3(4500, 4500, 4)
+        self.max_velocity = pg.math.Vector3(4, 4, 1)
+        self.max_position = pg.math.Vector3(18000, 18000, 4)
         self.min_position = pg.math.Vector3(0, 0, 0.45)
 
     def update(self, dt):
@@ -171,13 +173,15 @@ class DrawThread(thr.Thread):
             self.display.blit(resized, (0, -(self.display.get_width()-self.display.get_height()) / 2))
             # self.display.blit(camera.get_surface(scene), (0, 0))
             frametime_buffer += last_frame_took
-            if frame_counter % 100 == 0:
+            if not frame_counter % 100:
                 avg_frametime = frametime_buffer / 100
-                avg_fps = str(int(1 // avg_frametime))
+                avg_fps = str(round(1 / avg_frametime, 1))
                 frametime_buffer = 0
                 rpf = str(room_per_frame)
                 fps_text = font.render(avg_fps, True, (255, 0, 0))
                 rpf_text = font.render(rpf, True, (255, 0, 0))
+                if not frame_counter % 1000:
+                    gc.collect()
             self.display.blits([(fps_text, fps_text.get_rect(topleft=((0, 0)))), (rpf_text, fps_text.get_rect(bottomleft=(0, self.display.get_height())))])
             pg.display.flip()
 
@@ -199,6 +203,7 @@ class RenderThread(multiprocessing.Process):
         draw_thr.start()
         pg.display.set_caption('AntsyWorld')
         pg.event.set_allowed([pg.QUIT, pg.KEYDOWN, pg.KEYUP])
+        speed = False
         while not _escaped and not self.manager.halted.is_set():
 
             for event in pg.event.get():
@@ -207,29 +212,34 @@ class RenderThread(multiprocessing.Process):
                     case pg.QUIT:
                         self.halt()
                 if events[pg.K_w]:
-                    camera.local_move_y(-1)
+                    camera.local_move_y(-1 - 10 * speed)
                 elif events[pg.K_s]:
-                    camera.local_move_y(1)
+                    camera.local_move_y(1 + 10 * speed)
                 if events[pg.K_a]:
-                    camera.local_move_x(-1)
+                    camera.local_move_x(-1 - 10 * speed)
                 elif events[pg.K_d]:
-                    camera.local_move_x(1)
+                    camera.local_move_x(1 + 10 * speed)
                 if events[pg.K_r]:
                     camera.local_zoom(0.005)
                 elif events[pg.K_f]:
                     camera.local_zoom(-0.005)
+                if event.type == pg.KEYDOWN:
+                    if event.key == pg.K_q:
+                        speed = not speed
+                        print(speed)
             self.manager.set_camera_boundaries(camera.tiled_area)
             new = self.manager.get_rooms()
             # print(known_rooms)
-            draw_thr.updating.set()
-            for k, v in new.items():
-                if k not in known_rooms['known']:
-                    room_objects[k] = Room()
-                    res = room_objects[k].update(v)
-                else:
-                    res = room_objects[k].update(v)
-                if not res:
-                    known_rooms['known'][k] = v
+            if not draw_thr.updating.is_set():
+                draw_thr.updating.set()
+                for k, v in new.items():
+                    if k not in known_rooms['known']:
+                        room_objects[k] = Room()
+                        res = room_objects[k].update(v)
+                    else:
+                        res = room_objects[k].update(v)
+                    if not res:
+                        known_rooms['known'][k] = v
             draw_thr.updating.clear()
             time.sleep(1 / (rs.framerate / 3))
         self.halt()

@@ -79,8 +79,10 @@ class Room:
 
     def draw_tiles(self, screen: pg.Surface, cords, camera):
         # self.drawn = True
-        screen.blit(self.surface, (cords[0] - camera.position.x + 3000, cords[1] - camera.position.y + 3000))
+        screen.blit(self.surface, (
+        cords[0] - camera.position.x + 3000, cords[1] - camera.position.y + 3000))
 
     def draw_entities(self, screen: pg.Surface, cords, camera):
         # self.entities_drawn = True
-        screen.blit(self.entity_surface, (cords[0] - camera.position.x + 3000, cords[1] - camera.position.y + 3000))
+        screen.blit(self.entity_surface, (
+        cords[0] - camera.position.x + 3000, cords[1] - camera.position.y + 3000))
