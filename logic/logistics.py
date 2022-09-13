@@ -46,8 +46,7 @@ class LogicProcess(mp.Process):
         while not self.manager.halted.is_set():
             counter += 1
             self.update()
-            if not counter % 1000:
-                print('1')
+            if not counter % 10000:
                 self.world.save()
         self.generator.halt()
         self.generator.join(timeout=3)

@@ -65,12 +65,12 @@ class Room:
                     self.data['tiles'][cords] = tile
         if 'entities' in data and data['entities'] != self.data['entities']:
             self.entities_drawn = False
-            for entity in data['entities']:
+            self.entity_surface.fill((0, 0, 0))
+            for entity in data['entities'].values():
+                self.entity_surface.set_colorkey((0, 0, 0))
                 blitRotateCenter(self.entity_surface, ant.surface,
-                                 (entity.cords[0] * rs.tile_size[0], entity.cords[1] * rs.tile_size[1]),
-                                 (entity.rotation + 2))
-                pg.draw.rect(self.surface, (255, 0, 0),
-                             pg.Rect(entity.cords[0] * rs.tile_size[0], entity.cords[1] * rs.tile_size[1], 5, 5))
+                                 (entity['cords'][0] * rs.tile_size[0], entity['cords'][1] * rs.tile_size[1]),
+                                 (entity['rotation']))
             self.data['entities'] = data['entities']
         return 0
 
@@ -78,7 +78,9 @@ class Room:
         self.visible = b
 
     def draw_tiles(self, screen: pg.Surface, cords, camera):
+        # self.drawn = True
         screen.blit(self.surface, (cords[0] - camera.position.x + 3000, cords[1] - camera.position.y + 3000))
 
     def draw_entities(self, screen: pg.Surface, cords, camera):
+        # self.entities_drawn = True
         screen.blit(self.entity_surface, (cords[0] - camera.position.x + 3000, cords[1] - camera.position.y + 3000))

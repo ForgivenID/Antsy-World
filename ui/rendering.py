@@ -147,27 +147,28 @@ class DrawThread(thr.Thread):
         while not self.halted.is_set():
             room_per_frame = 0
             frame_counter += 1
-            if size != (self.display.get_width() * 10, self.display.get_height() * 10):
-                s = pg.Surface((self.display.get_width() * 10, self.display.get_height() * 10))
-                size = (self.display.get_width() * 10, self.display.get_height() * 10)
+            if size != (self.display.get_width() * 5, self.display.get_height() * 5):
+                s = pg.Surface((self.display.get_width() * 5, self.display.get_height() *5))
+                size = (self.display.get_width() * 5, self.display.get_height() * 5)
             last_frame_took = self.clock.tick(rs.framerate) * .001
             dt = last_frame_took * rs.framerate
             camera.update(dt)
-            for cords, room in room_objects.items():
-                if self.updating.is_set():
-                    break
-                if camera.repr_tiled_area().collidepoint(cords[0] * rs.room_size[0],
-                                                         cords[1] * rs.room_size[1]):
-                    if not room.drawn:
-                        room.draw_tiles(s, (cords[0] * rs.room_size[0],
-                                      cords[1] * rs.room_size[1]), camera)
-                    if not room.entities_drawn:
-                        room.draw_entities(s, (cords[0] * rs.room_size[0],
+            if not self.updating.is_set():
+                for cords, room in room_objects.items():
+                    if self.updating.is_set():
+                        break
+                    if camera.repr_tiled_area().collidepoint(cords[0] * rs.room_size[0],
+                                                             cords[1] * rs.room_size[1]):
+                        if not room.drawn:
+                            room.draw_tiles(s, (cords[0] * rs.room_size[0],
                                           cords[1] * rs.room_size[1]), camera)
+                        if not room.entities_drawn:
+                            room.draw_entities(s, (cords[0] * rs.room_size[0],
+                                              cords[1] * rs.room_size[1]), camera)
                     room_per_frame += 1
             sub = s.subsurface(camera.centred_rectangle)
-            resized = pg.transform.smoothscale(sub, (self.display.get_width(), self.display.get_height()))
-            self.display.blit(resized, (0, 0))
+            resized = pg.transform.smoothscale(sub, (self.display.get_width(), self.display.get_width()))
+            self.display.blit(resized, (0, -(self.display.get_width()-self.display.get_height()) / 2))
             # self.display.blit(camera.get_surface(scene), (0, 0))
             frametime_buffer += last_frame_took
             if frame_counter % 100 == 0:
@@ -177,8 +178,7 @@ class DrawThread(thr.Thread):
                 rpf = str(room_per_frame)
                 fps_text = font.render(avg_fps, True, (255, 0, 0))
                 rpf_text = font.render(rpf, True, (255, 0, 0))
-            self.display.blit(fps_text, fps_text.get_rect(topleft=(0, 0)))
-            self.display.blit(rpf_text, fps_text.get_rect(bottomleft=(0, self.display.get_height())))
+            self.display.blits([(fps_text, fps_text.get_rect(topleft=((0, 0)))), (rpf_text, fps_text.get_rect(bottomleft=(0, self.display.get_height())))])
             pg.display.flip()
 
 
