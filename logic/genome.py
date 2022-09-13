@@ -38,6 +38,17 @@ activation_funcs = {'step': step, 'nstep': nstep, 'sigm': sigmoid, 'relu': relu,
                     'none': none}
 
 
+def get_empty_conn():
+    return {
+        'function': rn.choice(list(activation_funcs.keys())),
+        'preset': None,
+        'fired': False,
+        'inputs': [],
+        'weights': {},
+        'dead': False
+    }
+
+
 class Brain:
     def __init__(self, genome, parent=None):
         self.entity = genome.entity
@@ -46,34 +57,13 @@ class Brain:
         else:
             self.connections = {'all': {}, 'input': {}, 'output': {}}
             for c_type in self.entity.sensory_types:
-                self.connections['all'][c_type] = {
-                    'function': rn.choice(list(activation_funcs.keys())),
-                    'preset': None,
-                    'fired': False,
-                    'inputs': [],
-                    'weights': {},
-                    'dead': False
-                }
+                self.connections['all'][c_type] = get_empty_conn()
                 self.connections['input'][c_type] = self.connections['all'][c_type]
             for c_type in self.entity.reactivity_types:
-                self.connections['all'][c_type] = {
-                    'function': rn.choice(list(activation_funcs.keys())),
-                    'preset': None,
-                    'fired': False,
-                    'inputs': [],
-                    'weights': {},
-                    'dead': False
-                }
+                self.connections['all'][c_type] = get_empty_conn()
                 self.connections['output'][c_type] = self.connections['all'][c_type]
             for _ in range(settings.starting_brain_axons):
-                self.connections['all'][str(uuid4().int)] = {
-                    'function': rn.choice(list(activation_funcs.keys())),
-                    'preset': None,
-                    'fired': False,
-                    'inputs': [],
-                    'weights': {},
-                    'dead': False
-                }
+                self.connections['all'][str(uuid4().int)] = get_empty_conn()
             self.mutate()
 
     def mutate(self):
@@ -95,21 +85,19 @@ class Brain:
                 c_uuid = rn.choice(list(connection['weights'].keys()))
                 connection['weights'][c_uuid] = rn.random() * 10 - 5
 
-
     def update_brain(self):
         self.set_inputs()
         outputs = {}
-        for connection in self.connections['all'].values():
-            connection['fired'] = False
-        for action in self.connections['output'].keys():
-            outputs[action] = self.update_connection(action)
+        [connection.update([('fired', False)]) for connection in self.connections['all'].values()]
+
+        [outputs.update([(action, self.update_connection(action))]) for action in self.connections['output'].keys()]
         outputs['halt'] = 0.001
         keys = list(outputs.keys()) + ['halt']
         self.entity.perform(rn.choices(keys, [outputs[key] for key in keys]))
 
     def set_inputs(self):
-        for sense in self.connections['input'].keys():
-            self.connections['all'][sense]['preset'] = self.entity.get_sensory_val(sense)
+        [input_conn[1].update([('preset', self.entity.get_sensory_val(input_conn[0]))]) for input_conn in
+         [(sense, self.connections['all'][sense]) for sense in self.connections['input'].keys()]]
 
     def update_connection(self, uuid, chain=None):
         if chain is None:
