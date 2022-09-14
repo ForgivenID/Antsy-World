@@ -8,7 +8,7 @@ class Manager:
     def __init__(self):
         self.render_queue: mp.Queue = mp.Queue(maxsize=1)
         self.entities_queue: mp.Queue = mp.Queue(maxsize=1)
-        self.logic_queue: mp.Queue = mp.Queue(maxsize=1)
+        self.logic_queue: mp.Queue = mp.Queue(maxsize=100)
         self.halted: mp.Event = mp.Event()
 
     def get_camera_boundaries(self):
@@ -21,10 +21,10 @@ class Manager:
             self.render_queue.put(boundaries)
 
     def get_rooms(self):
-        if not self.logic_queue.empty():
-            data = self.logic_queue.get()
-            return data
-        return {}
+        data = {}
+        while not self.logic_queue.empty():
+            data.update(self.logic_queue.get())
+        return data
 
     def set_rooms(self, rooms):
         if self.logic_queue.empty():

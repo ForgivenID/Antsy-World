@@ -77,12 +77,13 @@ class SimSettings:
     use_smart_request_distributor: bool = False
     name: str = datetime.datetime.now().strftime('%d.%m.%Y %H-%M-%S')
     room_settings = RoomSettings()
+    tickrate: float = 10.0  # ticks per second
 
 
 class RenderingSettings:
     rendering_distance: int = 10
     framerate: int = 80
-    fullscreen: bool = False
+    fullscreen: bool = True
     window_size: tuple[int, int] = (1000, 1000)
     resolution: tuple[int, int] = (GetSystemMetrics(0), GetSystemMetrics(1))
     room_size: tuple[int, int] = (RoomSettings.dimensions[0] * TileSettings.dimensions[0],

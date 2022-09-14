@@ -1,5 +1,6 @@
 import multiprocessing as mp
 import random as rn
+import time
 from functools import cache
 
 import misc.ProjSettings as settings
@@ -64,6 +65,7 @@ class LogicProcess(mp.Process):
         # print(tiles) if tiles != [] else None
         self.manager.set_rooms(self.get_rooms(cords))
         self.tick += 1
+        time.sleep(1/settings.SimSettings.tickrate)
 
     def get_rooms(self, cords):
         output = {}

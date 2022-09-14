@@ -4,6 +4,7 @@ import time
 from math import ceil
 
 import pygame as pg
+import pygame
 
 import ui.game_objects as Objects
 from misc.ProjSettings import RenderingSettings as rs
@@ -20,6 +21,10 @@ entities = []
 pg.font.init()
 font = pg.font.Font(None, 36)
 
+from threading import RLock
+
+lock = RLock()
+
 
 def toFixed(numObj, digits=0):
     return float(f"{numObj:.{digits}f}")
@@ -27,7 +32,7 @@ def toFixed(numObj, digits=0):
 
 class Camera(pg.Surface):
     def __init__(self):
-        super(Camera, self).__init__(size=rs.resolution if rs.fullscreen else rs.window_size)
+        super(Camera, self).__init__(size=rs.window_size)
         self.position, self.velocity = pg.math.Vector3(3000, 3000, 1), pg.math.Vector3(0, 0, 0)
         self.d_position = pg.math.Vector3(0, 0, 0)
         self.friction = pg.math.Vector3(-.12, -.12, -.2)
@@ -126,7 +131,6 @@ class DrawThread(thr.Thread):
             self.display = pg.display.set_mode(size=rs.window_size, flags=pg.RESIZABLE if rs.resizable else 0)
         Objects.convert_images()
         self.halted = thr.Event()
-        self.updating = thr.Event()
 
     def run(self):
 
@@ -150,27 +154,25 @@ class DrawThread(thr.Thread):
             room_per_frame = 0
             frame_counter += 1
             if size != (self.display.get_width() * 5, self.display.get_height() * 5):
-                s = pg.Surface((self.display.get_width() * 5, self.display.get_height() *5))
+                s = pg.Surface((self.display.get_width() * 5, self.display.get_height() * 5))
                 size = (self.display.get_width() * 5, self.display.get_height() * 5)
             last_frame_took = self.clock.tick(rs.framerate) * .001
             dt = last_frame_took * rs.framerate
             camera.update(dt)
-            if not self.updating.is_set():
+            with lock:
                 for cords, room in room_objects.items():
-                    if self.updating.is_set():
-                        break
                     if camera.repr_tiled_area().collidepoint(cords[0] * rs.room_size[0],
                                                              cords[1] * rs.room_size[1]):
                         if not room.drawn:
                             room.draw_tiles(s, (cords[0] * rs.room_size[0],
-                                          cords[1] * rs.room_size[1]), camera)
+                                                cords[1] * rs.room_size[1]), camera)
                         if not room.entities_drawn:
                             room.draw_entities(s, (cords[0] * rs.room_size[0],
-                                              cords[1] * rs.room_size[1]), camera)
+                                                   cords[1] * rs.room_size[1]), camera)
                     room_per_frame += 1
             sub = s.subsurface(camera.centred_rectangle)
             resized = pg.transform.smoothscale(sub, (self.display.get_width(), self.display.get_width()))
-            self.display.blit(resized, (0, -(self.display.get_width()-self.display.get_height()) / 2))
+            self.display.blit(resized, (0, -(self.display.get_width() - self.display.get_height()) / 2))
             # self.display.blit(camera.get_surface(scene), (0, 0))
             frametime_buffer += last_frame_took
             if not frame_counter % 100:
@@ -182,9 +184,9 @@ class DrawThread(thr.Thread):
                 rpf_text = font.render(rpf, True, (255, 0, 0))
                 if not frame_counter % 1000:
                     gc.collect()
-            self.display.blits([(fps_text, fps_text.get_rect(topleft=((0, 0)))), (rpf_text, fps_text.get_rect(bottomleft=(0, self.display.get_height())))])
+            self.display.blits([(fps_text, fps_text.get_rect(topleft=((0, 0)))),
+                                (rpf_text, fps_text.get_rect(bottomleft=(0, self.display.get_height())))])
             pg.display.flip()
-
 
     def halt(self):
         self.halted.set()
@@ -230,8 +232,7 @@ class RenderThread(multiprocessing.Process):
             self.manager.set_camera_boundaries(camera.tiled_area)
             new = self.manager.get_rooms()
             # print(known_rooms)
-            if not draw_thr.updating.is_set():
-                draw_thr.updating.set()
+            with lock:
                 for k, v in new.items():
                     if k not in known_rooms['known']:
                         room_objects[k] = Room()
@@ -240,7 +241,6 @@ class RenderThread(multiprocessing.Process):
                         res = room_objects[k].update(v)
                     if not res:
                         known_rooms['known'][k] = v
-            draw_thr.updating.clear()
             time.sleep(1 / (rs.framerate / 3))
         self.halt()
         draw_thr.halt()
