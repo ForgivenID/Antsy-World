@@ -64,7 +64,7 @@ class Ant(BaseEntity):
     def __init__(self, cords: tuple[int, int], room, rotation=0):
         super(Ant, self).__init__(cords, room, rotation)
         self.sensory_types = ['age', 'my_energy', 'neighbour_count', 'room_population', 'fwd_view', 'obstacle_circle']
-        self.reactivity_types = ['move_fwd', 'rotate-', 'rotate+']
+        self.reactivity_types = ['move_fwd', 'rotate-', 'rotate+', 'pass']
         self.energy = 100
         self.room['entities'][id(self)] = {'cords': self.cords, 'rotation': self.rotation}
         self.genome = Genome(self)
@@ -79,11 +79,13 @@ class Ant(BaseEntity):
             case 'room_population':
                 return len(self.room['entities'])
             case 'fwd_view':
+                self.energy -= 0.01
                 x = int(self.cords[0] + math.cos(math.radians(self.rotation + 90)))
                 y = int(self.cords[1] - math.sin(math.radians(self.rotation + 90)))
                 return int(self.room['tiles'][(x, y)]['object'] == 'NormalWall' if (x, y) in self.room[
                     'tiles'] else 0)
             case 'obstacle_circle':
+                self.energy -= 0.005
                 return (sum([int(self.room['tiles'][(x + self.cords[0], y + self.cords[1])]['object'] == 'NormalWall'
                                  if (x + self.cords[0], y + self.cords[1]) in self.room['tiles'] else 0)
                              for x in range(-1, 2) for y in range(-1, 2)])) / 8
@@ -97,10 +99,16 @@ class Ant(BaseEntity):
                 if (x + self.cords[0], y + self.cords[1]) in self.room['tiles']:
                     if self.room['tiles'][(x, y)]['object'] != 'NormalWall':
                         self.cords = (x, y)
+                else:
+                    if (x + self.cords[0], y + self.cords[1]) in self.room['tiles']:
+                        pass
             case 'rotate-':
                 self.rotation -= 90
             case 'rotate+':
                 self.rotation += 90
+            case 'pass' | _:
+                self.energy -= 0.0001
+        self.energy -= 0.01
         self.room['entities'][id(self)] = {'cords': self.cords, 'rotation': self.rotation}
 
     def logic(self, tick):

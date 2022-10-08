@@ -43,15 +43,15 @@ class Manager:
 
 if __name__ == '__main__':
     mp.current_process().name = "Antsy World"
-
     manager = Manager()
+
     logistics = LogicProcess(ProjSettings.SimSettings(), ProjSettings.WorldSettings(), manager)
     logistics.start()
+
     from ui.rendering import RenderThread
 
     rendering = RenderThread(manager)
     rendering.start()
-    print(0)
-    logistics.join()
-    rendering.halt()
+    rendering.join()
+    logistics.terminate()
     rendering.terminate()

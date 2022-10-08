@@ -1,20 +1,26 @@
 import multiprocessing as mp
 import random as rn
 import time
+
 from functools import cache
 
 import misc.ProjSettings as settings
 import worldgen
+
 from logic.entities import BaseEntity, Ant
 from world import World
+
 
 @cache
 def get_cords_from_tiled(tiled_area):
     return [(x, y) for x in range(tiled_area[0], tiled_area[2]) for y in
-     range(tiled_area[1], tiled_area[3])]
+            range(tiled_area[1], tiled_area[3])]
 
 
 class LogicProcess(mp.Process):
+    """
+    Backend process that is processing all occurring simulation events.
+    """
     def __init__(self, sim_settings, world_settings, manager):
         super(LogicProcess, self).__init__()
         self.name = f"Simulation-{sim_settings.name}"
@@ -39,7 +45,7 @@ class LogicProcess(mp.Process):
         self.entities = []
         for _ in range(100):
             cords = (rn.randint(0, settings.RoomSettings.dimensions[0]),
-                 rn.randint(0, settings.RoomSettings.dimensions[1]))
+                     rn.randint(0, settings.RoomSettings.dimensions[1]))
             room = self.world.rooms_data[rn.choice(list(self.world.rooms_data.keys()))]
             if cords in room['tiles'] and room['tiles'][cords]['object'] == 'NormalFloor':
                 self.entities.append(Ant(cords, room))
@@ -65,7 +71,7 @@ class LogicProcess(mp.Process):
         # print(tiles) if tiles != [] else None
         self.manager.set_rooms(self.get_rooms(cords))
         self.tick += 1
-        time.sleep(1/settings.SimSettings.tickrate)
+        time.sleep(1 / settings.SimSettings.tickrate)
 
     def get_rooms(self, cords):
         output = {}

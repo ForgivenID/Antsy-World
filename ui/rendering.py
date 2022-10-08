@@ -1,16 +1,14 @@
+import gc
 import multiprocessing
 import threading as thr
 import time
 from math import ceil
 
 import pygame as pg
-import pygame
 
 import ui.game_objects as Objects
 from misc.ProjSettings import RenderingSettings as rs
 from ui.game_objects import Room
-
-import gc
 
 _escaped = False
 events = {}
@@ -19,7 +17,7 @@ room_objects = {}
 entities = []
 
 pg.font.init()
-font = pg.font.Font(None, 36)
+font = pg.font.SysFont("Comic Sans Ms", 36)
 
 from threading import RLock
 
@@ -38,8 +36,19 @@ class Camera(pg.Surface):
         self.friction = pg.math.Vector3(-.12, -.12, -.2)
         self.acceleration = pg.math.Vector3(0, 0, 0)
         self.max_velocity = pg.math.Vector3(4, 4, 1)
-        self.max_position = pg.math.Vector3(18000, 18000, 4)
-        self.min_position = pg.math.Vector3(0, 0, 0.45)
+        self.max_position = pg.math.Vector3(18000, 18000, 5)
+        self.min_position = pg.math.Vector3(0, 0, 0.5)
+
+    def movement(self, dt):
+        self.acceleration += pg.math.Vector3(self.velocity.elementwise() * self.friction.elementwise())
+        self.velocity += (self.acceleration * dt)
+
+    def limit_velocity(self):
+        if self.velocity.length() > self.max_velocity.x:
+            self.velocity = self.velocity.normalize() * self.max_velocity.x
+        if abs(self.velocity.x) < .005: self.velocity.x = 0
+        if abs(self.velocity.y) < .005: self.velocity.y = 0
+        if abs(self.velocity.z) < .002: self.velocity.z = 0
 
     def update(self, dt):
         self.movement(dt)
@@ -48,12 +57,10 @@ class Camera(pg.Surface):
 
         if self.velocity.length() > 0:
             self.position += self.velocity * dt + (self.acceleration * .5) * dt ** 2
-            self.position.x = min(self.position.x, self.max_position.x)
-            self.position.y = min(self.position.y, self.max_position.y)
-            self.position.z = min(self.position.z, self.max_position.z)
-            self.position.x = max(self.position.x, self.min_position.x)
-            self.position.y = max(self.position.y, self.min_position.y)
-            self.position.z = max(self.position.z, self.min_position.z)
+            if self.position.length() > self.max_position.x:
+                self.position = self.position.normalize() * self.max_position.x
+            if self.position.length() < self.min_position.x:
+                self.position = self.position.normalize() * self.min_position.x
 
     @property
     def fov_rectangle(self):
@@ -79,7 +86,7 @@ class Camera(pg.Surface):
     @property
     def tiled_area(self):
         fod = self.fod_rectangle
-        return (fod.topleft[0] // rs.room_size[0], fod.topleft[1] // rs.room_size[1],
+        return (int(fod.topleft[0] // rs.room_size[0]), int(fod.topleft[1] // rs.room_size[1]),
                 ceil(fod.bottomright[0] / rs.room_size[0]), ceil(fod.bottomright[1] / rs.room_size[1]))
 
     def repr_tiled_area(self):
@@ -96,23 +103,7 @@ class Camera(pg.Surface):
         self.acceleration.y = y / self.position.z
 
     def local_zoom(self, z):
-        self.acceleration.z = z
-
-    def movement(self, dt):
-        self.acceleration.x += self.velocity.x * self.friction.x
-        self.acceleration.y += self.velocity.y * self.friction.y
-        self.acceleration.z += self.velocity.z * self.friction.z
-        self.velocity.x += self.acceleration.x * dt
-        self.velocity.y += self.acceleration.y * dt
-        self.velocity.z += self.acceleration.z * dt
-
-    def limit_velocity(self):
-        self.velocity.x = max(-self.max_velocity.x, min(self.velocity.x, self.max_velocity.x))
-        self.velocity.y = max(-self.max_velocity.y, min(self.velocity.y, self.max_velocity.y))
-        self.velocity.z = max(-self.max_velocity.z, min(self.velocity.z, self.max_velocity.z))
-        if abs(self.velocity.x) < .005: self.velocity.x = 0
-        if abs(self.velocity.y) < .005: self.velocity.y = 0
-        if abs(self.velocity.z) < .002: self.velocity.z = 0
+        self.acceleration.z = z / self.position.z
 
     def get_cords(self):
         pass
@@ -134,19 +125,13 @@ class DrawThread(thr.Thread):
 
     def run(self):
 
-        color = (0, 100, 0)
-        scene = BaseScene()
         s = pg.Surface((6000, 6000))
         size = (0, 0)
         pg.event.pump()
-        frametime_buffer = 0
         frame_counter = 0
-        avg_fps = rs.framerate
-        avg_frametime = frametime_buffer / 100
         avg_fps = '000'
         rpf = '000'
         frametime_buffer = 0
-        room_per_frame = 0
         self.display.set_alpha(None)
         fps_text = font.render(avg_fps, True, (255, 0, 0))
         rpf_text = font.render(rpf, True, (255, 0, 0))
@@ -159,6 +144,7 @@ class DrawThread(thr.Thread):
             last_frame_took = self.clock.tick(rs.framerate) * .001
             dt = last_frame_took * rs.framerate
             camera.update(dt)
+
             with lock:
                 for cords, room in room_objects.items():
                     if camera.repr_tiled_area().collidepoint(cords[0] * rs.room_size[0],
@@ -169,12 +155,14 @@ class DrawThread(thr.Thread):
                         if not room.entities_drawn:
                             room.draw_entities(s, (cords[0] * rs.room_size[0],
                                                    cords[1] * rs.room_size[1]), camera)
-                    room_per_frame += 1
+                        room_per_frame += 1
+
             sub = s.subsurface(camera.centred_rectangle)
             resized = pg.transform.smoothscale(sub, (self.display.get_width(), self.display.get_width()))
             self.display.blit(resized, (0, -(self.display.get_width() - self.display.get_height()) / 2))
             # self.display.blit(camera.get_surface(scene), (0, 0))
             frametime_buffer += last_frame_took
+
             if not frame_counter % 100:
                 avg_frametime = frametime_buffer / 100
                 avg_fps = str(round(1 / avg_frametime, 1))
@@ -182,9 +170,11 @@ class DrawThread(thr.Thread):
                 rpf = str(room_per_frame)
                 fps_text = font.render(avg_fps, True, (255, 0, 0))
                 rpf_text = font.render(rpf, True, (255, 0, 0))
+
                 if not frame_counter % 1000:
                     gc.collect()
-            self.display.blits([(fps_text, fps_text.get_rect(topleft=((0, 0)))),
+
+            self.display.blits([(fps_text, fps_text.get_rect(topleft=(0, 0))),
                                 (rpf_text, fps_text.get_rect(bottomleft=(0, self.display.get_height())))])
             pg.display.flip()
 
@@ -193,6 +183,10 @@ class DrawThread(thr.Thread):
 
 
 class RenderThread(multiprocessing.Process):
+    """
+
+    """
+
     def __init__(self, manager):
         super(RenderThread, self).__init__(name='Antsy Rendering', daemon=True)
         self.manager = manager
@@ -205,33 +199,40 @@ class RenderThread(multiprocessing.Process):
         draw_thr.start()
         pg.display.set_caption('AntsyWorld')
         pg.event.set_allowed([pg.QUIT, pg.KEYDOWN, pg.KEYUP])
-        speed = False
+        speed = 0.5
+        shift = False
+
         while not _escaped and not self.manager.halted.is_set():
 
             for event in pg.event.get():
                 events = pg.key.get_pressed()
+
                 match event.type:
                     case pg.QUIT:
+                        self.manager.halted.set()
                         self.halt()
+                if events[pg.K_ESCAPE]:
+                    self.manager.halted.set()
+                    self.halt()
                 if events[pg.K_w]:
-                    camera.local_move_y(-1 - 10 * speed)
+                    camera.local_move_y(-1 * speed - 10 * shift)
                 elif events[pg.K_s]:
-                    camera.local_move_y(1 + 10 * speed)
+                    camera.local_move_y(1 * speed + 10 * shift)
                 if events[pg.K_a]:
-                    camera.local_move_x(-1 - 10 * speed)
+                    camera.local_move_x(-1 * speed - 10 * shift)
                 elif events[pg.K_d]:
-                    camera.local_move_x(1 + 10 * speed)
+                    camera.local_move_x(1 * speed + 10 * shift)
                 if events[pg.K_r]:
                     camera.local_zoom(0.005)
                 elif events[pg.K_f]:
                     camera.local_zoom(-0.005)
                 if event.type == pg.KEYDOWN:
                     if event.key == pg.K_q:
-                        speed = not speed
-                        print(speed)
+                        shift = not shift
+
             self.manager.set_camera_boundaries(camera.tiled_area)
             new = self.manager.get_rooms()
-            # print(known_rooms)
+
             with lock:
                 for k, v in new.items():
                     if k not in known_rooms['known']:
@@ -242,11 +243,11 @@ class RenderThread(multiprocessing.Process):
                     if not res:
                         known_rooms['known'][k] = v
             time.sleep(1 / (rs.framerate / 3))
+
         self.halt()
         draw_thr.halt()
         draw_thr.join()
         pg.display.quit()
-        print('pgquit')
         pg.quit()
 
     def halt(self):

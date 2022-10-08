@@ -163,8 +163,8 @@ class _WorldGen:
         :param cords: Room's coordinates
         :return: Generated structure (dict)
         """
-        if cords[0] < 0 or cords[1] < 0:
-            return {cords: {}}
+        if cords[0] < -10^3 or cords[1] < -10^3:
+            return {'tiles': {}}
         rn = _room_neighbors(cords[0], cords[1])
         local_rn = _n_room_neighbors()
         # random = rnd.Random(w_seed)
