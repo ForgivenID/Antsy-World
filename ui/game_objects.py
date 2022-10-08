@@ -22,7 +22,8 @@ class ImageSurface:
         self.image.set_colorkey((0, 0, 0))
 
     def convert(self):
-        self.surface = self.image.convert()
+        self.image = self.image.convert()
+        self.surface = self.image
 
 
 wall_types = {i: ImageSurface('NormalWall', i) for i in range(1, 7)}
