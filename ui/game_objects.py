@@ -1,7 +1,5 @@
 from pathlib import Path
 
-import pygame as pg
-
 from misc.Paths import cwd
 from misc.ProjSettings import RenderingSettings as rs
 

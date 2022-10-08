@@ -4,7 +4,8 @@ import threading as thr
 import time
 from math import ceil
 
-import pygame as pg
+import pyglet as pyg
+import numpy as np
 
 import ui.game_objects as Objects
 from misc.ProjSettings import RenderingSettings as rs
@@ -16,8 +17,6 @@ known_rooms = {'new': {}, 'known': {}}
 room_objects = {}
 entities = []
 
-pg.font.init()
-font = pg.font.SysFont("Comic Sans Ms", 36)
 
 from threading import RLock
 
@@ -28,82 +27,89 @@ def toFixed(numObj, digits=0):
     return float(f"{numObj:.{digits}f}")
 
 
-class Camera(pg.Surface):
+class Camera:
     def __init__(self):
-        super(Camera, self).__init__(size=rs.window_size)
-        self.position, self.velocity = pg.math.Vector3(3000, 3000, 1), pg.math.Vector3(0, 0, 0)
-        self.d_position = pg.math.Vector3(0, 0, 0)
-        self.friction = pg.math.Vector3(-.12, -.12, -.2)
-        self.acceleration = pg.math.Vector3(0, 0, 0)
-        self.max_velocity = pg.math.Vector3(4, 4, 1)
-        self.max_position = pg.math.Vector3(18000, 18000, 5)
-        self.min_position = pg.math.Vector3(0, 0, 0.5)
+        self.size = rs.window_size
+        self.position, self.velocity = np.array([3000, 3000, 1]), np.array([0, 0, 0])
+        self.d_position = np.array([0, 0, 0])
+        self.friction = np.array([-.12, -.12, -.2])
+        self.acceleration = np.array([0, 0, 0])
+        self.max_velocity = np.array([4, 4, 1])
+        self.max_position = np.array([18000, 18000, 5])
+        self.min_position = np.array([0, 0, 0.5])
 
     def movement(self, dt):
-        self.acceleration += pg.math.Vector3(self.velocity.elementwise() * self.friction.elementwise())
+        self.acceleration += self.velocity * self.friction
         self.velocity += (self.acceleration * dt)
 
     def limit_velocity(self):
-        if self.velocity.length() > self.max_velocity.x:
-            self.velocity = self.velocity.normalize() * self.max_velocity.x
-        if abs(self.velocity.x) < .005: self.velocity.x = 0
-        if abs(self.velocity.y) < .005: self.velocity.y = 0
-        if abs(self.velocity.z) < .002: self.velocity.z = 0
+
+        if sum(map(np.square, self.velocity)) > np.square(self.max_velocity[0]):
+            self.velocity = np.linalg.norm(self.velocity) * self.max_velocity[0]
+        if abs(self.velocity[0]) < .005: self.velocity[0] = 0
+        if abs(self.velocity[1]) < .005: self.velocity[1] = 0
+        if abs(self.velocity[2]) < .002: self.velocity[2] = 0
 
     def update(self, dt):
         self.movement(dt)
-        self.acceleration.update()
+        self.acceleration *= 0
         self.limit_velocity()
 
-        if self.velocity.length() > 0:
+        if sum(map(np.square, self.velocity)) > 0:
             self.position += self.velocity * dt + (self.acceleration * .5) * dt ** 2
-            if self.position.length() > self.max_position.x:
-                self.position = self.position.normalize() * self.max_position.x
-            if self.position.length() < self.min_position.x:
-                self.position = self.position.normalize() * self.min_position.x
+            if sum(map(np.square, self.position)) > np.square(self.max_position[0]):
+                self.position = np.linalg.norm(self.position) * self.max_position[0]
+            if sum(map(np.square, self.position)) < np.square(self.min_position[0]):
+                self.position = np.linalg.norm(self.position) * self.min_position[0]
+
+    def get_width(self):
+        return self.size[0]
+
+    def get_height(self):
+        return self.size[1]
 
     @property
     def fov_rectangle(self):
-        return pg.Rect(self.position.x - (self.get_width() * self.position.z / 2),
-                       self.position.y - (self.get_height() * self.position.z / 2),
-                       (self.get_width() * self.position.z),
-                       (self.get_height() * self.position.z))
+        return (self.position[0] - (self.get_width() * self.position[2] / 2),
+                       self.position[1] - (self.get_height() * self.position[2] / 2),
+                       (self.get_width() * self.position[2]),
+                       (self.get_height() * self.position[2]))
 
     @property
     def centred_rectangle(self):
-        return (3000 - (self.get_width() * self.position.z / 2),
-                3000 - (self.get_height() * self.position.z / 2),
-                (self.get_width() * self.position.z),
-                (self.get_height() * self.position.z))
+        return (3000 - (self.get_width() * self.position[2] / 2),
+                3000 - (self.get_height() * self.position[2] / 2),
+                (self.get_width() * self.position[2]),
+                (self.get_height() * self.position[2]))
 
     @property
     def fod_rectangle(self):
-        return pg.Rect(self.position.x - ((self.get_width() + 100 / self.position.z) * self.position.z / 2),
-                       self.position.y - ((self.get_height() + 100 / self.position.z) * self.position.z / 2),
-                       ((self.get_width() + 100 / self.position.z) * self.position.z),
-                       ((self.get_height() + 100 / self.position.z) * self.position.z))
+        return (self.position[0] - ((self.get_width() + 100 / self.position[2]) * self.position[2] / 2),
+                       self.position[1] - ((self.get_height() + 100 / self.position[2]) * self.position[2] / 2),
+                       ((self.get_width() + 100 / self.position[2]) * self.position[2]),
+                       ((self.get_height() + 100 / self.position[2]) * self.position[2]))
 
     @property
     def tiled_area(self):
         fod = self.fod_rectangle
-        return (int(fod.topleft[0] // rs.room_size[0]), int(fod.topleft[1] // rs.room_size[1]),
-                ceil(fod.bottomright[0] / rs.room_size[0]), ceil(fod.bottomright[1] / rs.room_size[1]))
+        return (int(fod[0] // rs.room_size[0]), int(fod[1] // rs.room_size[1]),
+                ceil((fod[0]+fod[2]) / rs.room_size[0]), ceil((fod[1]+fod[3]) / rs.room_size[1]))
 
     def repr_tiled_area(self):
         tr = self.tiled_area
-        return pg.Rect(tr[0] * rs.room_size[0],
+        return (tr[0] * rs.room_size[0],
                        tr[1] * rs.room_size[1],
                        tr[2] * rs.room_size[0] - tr[0] * rs.room_size[0],
                        tr[3] * rs.room_size[1] - tr[1] * rs.room_size[1])
 
     def local_move_x(self, x):
-        self.acceleration.x = x / self.position.z
+        self.acceleration[0] = x / self.position[2]
 
     def local_move_y(self, y):
-        self.acceleration.y = y / self.position.z
+        self.acceleration[1] = y / self.position[2]
 
     def local_zoom(self, z):
-        self.acceleration.z = z / self.position.z
+        self.acceleration[2] = z / self.position[2]
 
     def get_cords(self):
         pass
