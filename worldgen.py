@@ -189,7 +189,7 @@ class _WorldGen:
         return {
             'tiles': {
                 cords: {'type': check_shape(*cords, generated_tiles), 'object': 'NormalWall'} if tile else
-                {'type': 1, 'object': 'NormalFloor'}
+                {'type': (1, 0), 'object': 'NormalFloor'}
                 for cords, tile in generated_tiles.items() if cords in self.room_cords}}
 
     def run(self) -> None:

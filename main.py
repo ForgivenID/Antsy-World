@@ -2,6 +2,8 @@ import multiprocessing as mp
 
 from logic.logistics import LogicProcess
 from misc import ProjSettings
+import pyglet as pyg
+from pyglet.window import key
 
 
 class Manager:
@@ -44,14 +46,23 @@ class Manager:
 if __name__ == '__main__':
     mp.current_process().name = "Antsy World"
     manager = Manager()
-
     logistics = LogicProcess(ProjSettings.SimSettings(), ProjSettings.WorldSettings(), manager)
     logistics.start()
 
-    from ui.rendering import RenderThread
+    from ui.rendering import EventProcess, DrawThread
 
-    rendering = RenderThread(manager)
-    rendering.start()
-    rendering.join()
+    window = pyg.window.Window(*ProjSettings.RenderingSettings.window_size, "AntsyWorld", vsync=False, visible=False)
+    rendering = DrawThread(window)
+    events = EventProcess(manager)
+    event_loop = pyg.app.EventLoop()
+    pyg.clock.schedule_interval(rendering.update, 1/ProjSettings.RenderingSettings.framerate)
+    pyg.clock.schedule_interval_soft(events.update, 2/ProjSettings.RenderingSettings.framerate)
+    window.on_key_press = events.key_press
+    window.on_key_release = events.key_release
+
+
+    window.set_visible(True)
+    pyg.app.run()
+
+    logistics.join(1/100)
     logistics.terminate()
-    rendering.terminate()
