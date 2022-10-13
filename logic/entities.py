@@ -1,8 +1,10 @@
 import math
-import threading as thr
+import multiprocessing
+import pickle
+import random as rn
 import uuid
 from functools import lru_cache, cache
-import random as rn
+from multiprocessing import Pool
 
 from logic.genome import Genome
 from misc import ProjSettings
@@ -45,15 +47,14 @@ class BaseEntity:
     def __init__(self, cords: tuple[int, int], room, rotation=0, name=None):
         self.room = room
         if name is None:
-            name = f'{type(self)}_{uuid.uuid4()}'
+            self.name = f'{type(self)}_{uuid.uuid4()}'
         self.age = 0
         self.cords = cords
         self.rotation = rotation
         self.next_actions = []
+        self.alive = True
 
     def update(self, tick):
-        for action in self.next_actions:
-            self.__dict__[action['type']](**action['args'])
         self.logic(tick)
 
     def logic(self, tick):
@@ -61,31 +62,50 @@ class BaseEntity:
 
 
 class Ant(BaseEntity):
-    def __init__(self, cords: tuple[int, int], room, rotation=0):
+
+    def __init__(self, cords: tuple[int, int], room, queen, rotation=0):
         super(Ant, self).__init__(cords, room, rotation)
-        self.sensory_types = ['age', 'my_energy', 'neighbour_count', 'room_population', 'fwd_view', 'obstacle_circle']
-        self.reactivity_types = ['move_fwd', 'rotate-', 'rotate+', 'pass']
+        self.sensory_types = ['age', 'my_energy', 'neighbour_count', 'room_population', 'fwd_view', 'obstacle_circle',
+                              'sine', 'rotation']
+        self.reactivity_types = ['move_fwd', 'rotate-', 'rotate+', 'pass', 'sine_coefficient']
         self.energy = 100
-        self.room['entities'][id(self)] = {'cords': self.cords, 'rotation': self.rotation}
+        self.room['entities'][id(self)] = {'cords': self.cords, 'rotation': self.rotation, 'type': 'NormalAnt'}
         self.genome = Genome(self)
         self.rotation = rn.randint(0, 8) * 90
+        self.queen: SwarmQueen = queen
+
+    def move(self, x, y):
+        if (x, y) in self.room['tiles']:
+            if self.room['tiles'][(x, y)]['object'] != 'NormalWall':
+                self.cords = (x, y)
+        else:
+            if (x + self.cords[0], y + self.cords[1]) in self.room['tiles']:
+                self.cords = (x % ProjSettings.RoomSettings.dimensions[0], y % ProjSettings.RoomSettings.dimensions[1])
+                # self.room[]
+
+
+    def rotate(self, angle):
+        self.rotation += angle
+        self.rotation %= 360
 
     def get_sensory_val(self, sense):
         match sense:
+            case 'rotation':
+                return self.rotation/360
+            case 'sine':
+                return math.sin(self.age)
             case 'age':
                 return self.age
             case 'my_energy':
-                return self.energy
+                return self.energy / 100
             case 'room_population':
                 return len(self.room['entities'])
             case 'fwd_view':
-                self.energy -= 0.01
                 x = int(self.cords[0] + math.cos(math.radians(self.rotation + 90)))
                 y = int(self.cords[1] - math.sin(math.radians(self.rotation + 90)))
                 return int(self.room['tiles'][(x, y)]['object'] == 'NormalWall' if (x, y) in self.room[
                     'tiles'] else 0)
             case 'obstacle_circle':
-                self.energy -= 0.005
                 return (sum([int(self.room['tiles'][(x + self.cords[0], y + self.cords[1])]['object'] == 'NormalWall'
                                  if (x + self.cords[0], y + self.cords[1]) in self.room['tiles'] else 0)
                              for x in range(-1, 2) for y in range(-1, 2)])) / 8
@@ -96,21 +116,128 @@ class Ant(BaseEntity):
             case 'move_fwd':
                 x = int(round(self.cords[0] + math.cos(math.radians(self.rotation))))
                 y = int(round(self.cords[1] - math.sin(math.radians(self.rotation))))
-                if (x + self.cords[0], y + self.cords[1]) in self.room['tiles']:
-                    if self.room['tiles'][(x, y)]['object'] != 'NormalWall':
-                        self.cords = (x, y)
-                else:
-                    if (x + self.cords[0], y + self.cords[1]) in self.room['tiles']:
-                        pass
+                self.next_actions.append(('move', (x, y)))
+
             case 'rotate-':
-                self.rotation -= 90
+                self.next_actions.append(('rotate', tuple([-90])))
             case 'rotate+':
-                self.rotation += 90
-            case 'pass' | _:
+                self.next_actions.append(('rotate', tuple([+90])))
+            case _:
                 self.energy -= 0.0001
-        self.energy -= 0.01
-        self.room['entities'][id(self)] = {'cords': self.cords, 'rotation': self.rotation}
+
+    def apply(self):
+        if self.energy < 0:
+            if id(self) in self.room['entities']:
+                self.room['entities'].pop(id(self))
+            self.alive = False
+            del self
+        else:
+            self.age += 0.1
+            [Ant.__dict__[action](self, *args) for action, args in self.next_actions]
+            self.next_actions.clear()
+            self.energy -= 0.01
+            self.room['entities'][id(self)]['cords'] = self.cords
+            self.room['entities'][id(self)]['rotation'] = self.rotation
+
+    def logic(self, tick):
+        self.genome.brain.update_brain()
+
+    def logic_async(self, tick):
+        return self.genome.brain.update_brain_async()
+
+    def update(self, tick):
+        self.logic(tick)
+        #
+        #if self.queen.alive:
+        #    return
+        #else:
+        #    self.logic(tick)
+
+
+class SwarmQueen(BaseEntity):
+    def __init__(self, cords, room, rotation=0):
+        print(cords)
+        super(SwarmQueen, self).__init__(cords, room, rotation)
+        self.queen = None
+        self.sensory_types = ['age', 'my_energy', 'neighbour_count', 'room_population', 'fwd_view', 'obstacle_circle',
+                              'sine', 'ant_population']
+        self.reactivity_types = ['create_ant', 'pass', 'sine_coefficient']
+        self.energy = 10000
+        self.room['entities'][id(self)] = {'cords': self.cords, 'rotation': self.rotation, 'type': 'SwarmQueen'}
+        self.genome = Genome(self)
+        self.rotation = rn.randint(0, 8) * 90
+        self.ants: list[Ant] = []
+        self.create_ant()
+
+    def move(self, x, y):
+        raise Warning(f'{self.name} has no ability to perform mobile actions, but desperately tries to.')
+
+    def rotate(self, angle):
+        raise Warning(f'{self.name} has no ability to perform mobile actions, but desperately tries to.')
+
+    def get_sensory_val(self, sense):
+        match sense:
+            case 'sine':
+                return math.sin(self.age)
+            case 'age':
+                return self.age
+            case 'my_energy':
+                return self.energy/10000
+            case 'room_population':
+                return len(self.room['entities'])
+            case 'fwd_view':
+                x = int(self.cords[0] + math.cos(math.radians(self.rotation + 90)))
+                y = int(self.cords[1] - math.sin(math.radians(self.rotation + 90)))
+                return int(self.room['tiles'][(x, y)]['object'] == 'NormalWall' if (x, y) in self.room[
+                    'tiles'] else 0)
+            case 'obstacle_circle':
+                return (sum([int(self.room['tiles'][(x + self.cords[0], y + self.cords[1])]['object'] == 'NormalWall'
+                                 if (x + self.cords[0], y + self.cords[1]) in self.room['tiles'] else 0)
+                             for x in range(-1, 2) for y in range(-1, 2)])) / 8
+        return 0
+
+    def perform(self, action):
+        match action[0]:
+            case 'create_ant':
+                self.next_actions.append(('create_ant', ()))
+            case _:
+                self.energy -= 0.0001
+
+    def create_ant(self):
+        if self.energy > 10:
+            self.energy -= 10
+            ant = None
+            for i in range(4):
+                x = int(self.cords[0] + math.cos(math.radians(self.rotation + 90)))
+                y = int(self.cords[1] - math.sin(math.radians(self.rotation + 90)))
+                if self.room['tiles'][(x, y)]['object'] == 'NormalFloor' if (x, y) in self.room[
+                    'tiles'] else False:
+                    ant = Ant((x, y), self.room, self)
+            if ant is None:
+                if id(self) in self.room['entities']:
+                    self.room['entities'].pop(id(self))
+                self.alive = False
+                del self
+            else:
+                self.ants.append(ant)
+
+    def apply(self):
+        if self.energy < 0:
+            if id(self) in self.room['entities']:
+                self.room['entities'].pop(id(self))
+            self.alive = False
+            del self
+        else:
+            self.age += 0.1
+            [SwarmQueen.__dict__[action](self, *args) for action, args in self.next_actions]
+            self.next_actions.clear()
+            self.energy -= 0.01
 
     def logic(self, tick):
         self.age += 0.1
         self.genome.brain.update_brain()
+        self.apply()
+        [(ant.update(tick), ant.apply()) for ant in self.ants]
+        # with Pool(processes=3) as p:
+        #    data = p.starmap(Ant.logic_async, [(ant, tick) for ant in self.ants])
+        # [(self.ants[i].perform(data[i]), self.ants[i].apply()) for i in range(len(data))]

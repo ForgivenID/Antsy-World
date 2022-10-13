@@ -42,8 +42,7 @@ class Room:
         self.data = {'tiles': {}, 'entities': {}}
         self.entities = {}
         self.surface = pg.Surface(rs.room_size)
-        self.entity_surface = pg.Surface(rs.room_size)
-        self.entity_surface.set_colorkey((0, 0, 0))
+        self.entity_surface = pg.Surface((rs.room_size[0] + 10, rs.room_size[1] + 10))
         self.drawn = False
         self.entities_drawn = False
 
@@ -57,20 +56,21 @@ class Room:
                     match tile['object']:
                         case 'NormalWall':
                             pg.draw.rect(self.surface, (0, 0, 0),
-                                         pg.Rect(cords[0] * rs.tile_size[0], cords[1] * rs.tile_size[1], *rs.tile_size))
+                                         pg.Rect(cords[0] * rs.tile_size[0], cords[1] * rs.tile_size[1],
+                                                 *rs.tile_size))
                             blitRotateCenter(self.surface, wall_types[tile['type'][0]].surface,
                                              (cords[0] * rs.tile_size[0], cords[1] * rs.tile_size[1]),
                                              90 * (tile['type'][1] + 2))
                         case 'NormalFloor':
-                            self.surface.blit(floor.surface, (cords[0] * rs.tile_size[0], cords[1] * rs.tile_size[1]))
+                            self.surface.blit(floor.surface,
+                                              (cords[0] * rs.tile_size[0], cords[1] * rs.tile_size[1]))
                     self.data['tiles'][cords] = tile
         if 'entities' in data and data['entities'] != self.data['entities']:
             self.entities_drawn = False
             self.entity_surface.fill((0, 0, 0))
             for entity in data['entities'].values():
-                self.entity_surface.set_colorkey((0, 0, 0))
                 blitRotateCenter(self.entity_surface, ant.surface,
-                                 (entity['cords'][0] * rs.tile_size[0], entity['cords'][1] * rs.tile_size[1]),
+                                 (entity['cords'][0] * rs.tile_size[0] + 5, entity['cords'][1] * rs.tile_size[1] + 5),
                                  (entity['rotation']))
             self.data['entities'] = data['entities']
         return 0
@@ -78,12 +78,13 @@ class Room:
     def visibility_set(self, b: bool):
         self.visible = b
 
-    def draw_tiles(self, screen: pg.Surface, cords, camera):
-        # self.drawn = True
-        screen.blit(self.surface, (
-        cords[0] - camera.position.x + 3000, cords[1] - camera.position.y + 3000))
+    def draw_tiles(self, screen: pg.Surface, cords):
+        self.drawn = True
+        screen.blit(self.surface, (cords[0], cords[1]))
 
-    def draw_entities(self, screen: pg.Surface, cords, camera):
-        # self.entities_drawn = True
-        screen.blit(self.entity_surface, (
-        cords[0] - camera.position.x + 3000, cords[1] - camera.position.y + 3000))
+    def draw_entities(self, screen: pg.Surface, cords):
+        self.entities_drawn = True
+        '''pg.draw.rect(screen, (0, 0, 0),
+                     pg.Rect(cords[0] * rs.tile_size[0], cords[1] * rs.tile_size[1],
+                             *rs.room_size))'''
+        screen.blit(self.entity_surface, (cords[0], cords[1]))

@@ -95,6 +95,16 @@ class Brain:
         keys = list(outputs.keys()) + ['halt']
         self.entity.perform(rn.choices(keys, [outputs[key] for key in keys]))
 
+    def update_brain_async(self):
+        self.set_inputs()
+        outputs = {}
+        [connection.update([('fired', False)]) for connection in self.connections['all'].values()]
+
+        [outputs.update([(action, self.update_connection(action))]) for action in self.connections['output'].keys()]
+        outputs['halt'] = 0.001
+        keys = list(outputs.keys()) + ['halt']
+        return rn.choices(keys, [outputs[key] for key in keys])
+
     def set_inputs(self):
         [input_conn[1].update([('preset', self.entity.get_sensory_val(input_conn[0]))]) for input_conn in
          [(sense, self.connections['all'][sense]) for sense in self.connections['input'].keys()]]
@@ -126,9 +136,8 @@ class Genome:
     def __init__(self, entity, parent=None):
         self.entity = entity
         if parent:
-            self.modules = copy.deepcopy(parent.moules.items())
+            self.modules = copy.deepcopy(parent.modules.items())
             self.brain = Brain(parent.brain)
-            self.ant_brains = [Brain(brain) for brain in parent.ant_brains]
 
         else:
             self.modules = {
@@ -142,3 +151,13 @@ class Genome:
             }
 
             self.brain = Brain(self)
+
+    def update(self):
+        self.brain.update_brain()
+
+
+class SwarmGenome(Genome):
+    def __init__(self, entity, parent):
+        super(SwarmGenome, self).__init__(entity, parent)
+        self.ant_genes = [Genome(parent_ant) for parent_ant in parent.ant_genes]
+

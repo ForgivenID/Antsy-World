@@ -8,6 +8,7 @@ from functools import cache, lru_cache
 
 from misc import ProjSettings
 from misc.ProjSettings import SimSettings
+from misc.Distributors import SimpleDistributor
 
 shape_patterns = {
 
@@ -75,36 +76,6 @@ def check_shape(x, y, d):
     return shape_patterns[tuple(neighbors)] if tuple(neighbors) in shape_patterns else (1, 0)
 
 
-class _SmartDistributor:
-    """
-        Class for using a function over a pool of objects, similar to *map()* but executes only once on every call and
-        can loop over the pool indefinitely; Use to distribute load over multiple processes/threads.
-        Distributes load depending on how busy the pool is.
-        **Not implemented.**
-    """
-
-    def __init__(self):
-        raise NotImplemented
-
-
-class SimpleDistributor:
-    """
-        Class for using a function over a pool of objects, similar to *map()* but executes only once on every call and
-        can loop over the pool indefinitely; Use to distribute load over multiple processes/threads.
-        Doesn't check if objects from a pool are ready to get a task, so they should have some kind of buffer.
-    """
-
-    def __init__(self, objects, func):
-        self.objects = objects
-        self.func = func
-        self.pointer = 0
-
-    def __call__(self, *args, **kwargs):
-        if len(self.objects) == 0: return
-        self.func(self.objects[self.pointer % len(self.objects)], *args, **kwargs)
-        self.pointer += 1
-
-
 class _WorldGen:
     """
         WorldGenerator, takes coordinates and seed to generate world using B678/S345678 Cellular Automata rule.
@@ -163,7 +134,7 @@ class _WorldGen:
         :param cords: Room's coordinates
         :return: Generated structure (dict)
         """
-        if cords[0] < -10^3 or cords[1] < -10^3:
+        if cords[0] < 0 or cords[1] < 0:
             return {'tiles': {}}
         rn = _room_neighbors(cords[0], cords[1])
         local_rn = _n_room_neighbors()

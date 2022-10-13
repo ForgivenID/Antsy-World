@@ -7,7 +7,7 @@ from win32api import GetSystemMetrics
 
 class WorldSettings:
     dimensions: tuple[int, int] = (250, 250)
-    generator_processes: int = 3
+    generator_processes: int = 4
     generator_threads: int = 5
     portals: int = 2
     starting_colonies: int = 3
@@ -18,7 +18,7 @@ class WorldSettings:
 # ---
 
 class RoomSettings:
-    dimensions: tuple[int, int] = (30, 30)
+    dimensions: tuple[int, int] = (45, 45)
     name: str = str(uuid.uuid4())
     max_ants: int = 20
     ant_halt: float = .5
@@ -77,13 +77,13 @@ class SimSettings:
     use_smart_request_distributor: bool = False
     name: str = datetime.datetime.now().strftime('%d.%m.%Y %H-%M-%S')
     room_settings = RoomSettings()
-    tickrate: float = 10.0  # ticks per second
+    tickrate: float = 15.0  # ticks per second
 
 
 class RenderingSettings:
     rendering_distance: int = 10
-    framerate: int = 80
-    fullscreen: bool = True
+    framerate: int = 61
+    fullscreen: bool = False
     window_size: tuple[int, int] = (1000, 1000)
     resolution: tuple[int, int] = (GetSystemMetrics(0), GetSystemMetrics(1))
     room_size: tuple[int, int] = (RoomSettings.dimensions[0] * TileSettings.dimensions[0],
@@ -91,9 +91,12 @@ class RenderingSettings:
     tile_size: tuple[int, int] = TileSettings.dimensions
     resizable: bool = True
 
+class SwarmSettings:
+    processes: int = 3
+
 
 class GenomeSettings:
-    module_restrictions = {
+    module_restrictions: dict[str, tuple[int, int]] = {
         'movement': (0, 3),
         'rotation': (0, 2),
         'brain': (0, 1),
@@ -102,9 +105,9 @@ class GenomeSettings:
         'sleepy_mode': (0, 15),
         'exploration': (0, 2),
     }
-    max_brain_axons = 15
-    starting_brain_axons = 6
-    new_axon_mutation = 0.08
-    axon_degeneration = 0.005
-    function_mutation = 0.15
-    weight_mutation = 0.1
+    max_brain_axons: int = 15
+    starting_brain_axons: int = 6
+    new_axon_mutation: float = 0.08
+    axon_degeneration: float = 0.005
+    function_mutation: float = 0.15
+    weight_mutation: float = 0.1
