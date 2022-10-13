@@ -42,14 +42,14 @@ class LogicProcess(mp.Process):
             data[1]['entities'] = {}
             self.world.rooms_data[data[0]] = data[1]
         self.entities = []
-        for _ in range(10):
+        for _ in range(100):
             queen = None
             r_cords = rn.choice(list(self.world.rooms_data.keys()))
             while queen is None:
                 room = self.world.rooms_data[r_cords]
                 cords = rn.choice(list(room['tiles'].keys()))
                 if cords in room['tiles'] and room['tiles'][cords]['object'] == 'NormalFloor':
-                    queen = SwarmQueen(cords, room)
+                    queen = SwarmQueen(cords, room, self.world)
                     self.entities.append(queen)
         counter = 0
         while not self.manager.halted.is_set():

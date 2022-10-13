@@ -1,10 +1,7 @@
 import math
-import multiprocessing
-import pickle
 import random as rn
 import uuid
 from functools import lru_cache, cache
-from multiprocessing import Pool
 
 from logic.genome import Genome
 from misc import ProjSettings
@@ -44,8 +41,9 @@ class Room:
 
 
 class BaseEntity:
-    def __init__(self, cords: tuple[int, int], room, rotation=0, name=None):
+    def __init__(self, cords: tuple[int, int], room, world, rotation=0, name=None):
         self.room = room
+        self.world = world
         if name is None:
             self.name = f'{type(self)}_{uuid.uuid4()}'
         self.age = 0
@@ -63,11 +61,11 @@ class BaseEntity:
 
 class Ant(BaseEntity):
 
-    def __init__(self, cords: tuple[int, int], room, queen, rotation=0):
-        super(Ant, self).__init__(cords, room, rotation)
+    def __init__(self, cords: tuple[int, int], room, world, queen, rotation=0):
+        super(Ant, self).__init__(cords, room, world, rotation)
         self.sensory_types = ['age', 'my_energy', 'neighbour_count', 'room_population', 'fwd_view', 'obstacle_circle',
                               'sine', 'rotation']
-        self.reactivity_types = ['move_fwd', 'rotate-', 'rotate+', 'pass', 'sine_coefficient']
+        self.reactivity_types = ['move_fwd', 'rotate-', 'rotate+', 'pass', 'sine_coefficient', 'dig']
         self.energy = 100
         self.room['entities'][id(self)] = {'cords': self.cords, 'rotation': self.rotation, 'type': 'NormalAnt'}
         self.genome = Genome(self)
@@ -78,20 +76,51 @@ class Ant(BaseEntity):
         if (x, y) in self.room['tiles']:
             if self.room['tiles'][(x, y)]['object'] != 'NormalWall':
                 self.cords = (x, y)
-        else:
-            if (x + self.cords[0], y + self.cords[1]) in self.room['tiles']:
-                self.cords = (x % ProjSettings.RoomSettings.dimensions[0], y % ProjSettings.RoomSettings.dimensions[1])
-                # self.room[]
-
+        elif (0 > x or x > ProjSettings.RoomSettings.dimensions[0] - 1 or
+              0 > y or y > ProjSettings.RoomSettings.dimensions[1] - 1):
+            cords = (
+                self.room['cords'][0] + (
+                    (-1) if x < 0 else (1 if x > ProjSettings.RoomSettings.dimensions[0] - 1 else 0))
+                ,
+                self.room['cords'][1] + (
+                    (-1) if y < 0 else (1 if y > ProjSettings.RoomSettings.dimensions[1] - 1 else 0)))
+            new_room = self.world.rooms_data[cords] if cords in self.world.rooms_data else {}
+            if 'entities' not in new_room:
+                return
+            self.room['entities'].pop(id(self))
+            self.room = new_room
+            self.cords = (x % ProjSettings.RoomSettings.dimensions[0], y % ProjSettings.RoomSettings.dimensions[1])
+            self.room['entities'][id(self)] = {
+                'cords': self.cords,
+                'rotation': self.rotation
+            }
 
     def rotate(self, angle):
         self.rotation += angle
         self.rotation %= 360
 
+    def dig(self, x, y):
+        if (x, y) in self.room['tiles']:
+            if self.room['tiles'][(x, y)]['object'] == 'NormalWall':
+                self.room['tiles'][(x, y)]['object'] = 'NormalFloor'
+        elif (0 > x or x > ProjSettings.RoomSettings.dimensions[0] - 1 or
+              0 > y or y > ProjSettings.RoomSettings.dimensions[1] - 1):
+            cords = (
+                self.room['cords'][0] + (
+                    (-1) if x < 0 else (1 if x > ProjSettings.RoomSettings.dimensions[0] - 1 else 0))
+                ,
+                self.room['cords'][1] + (
+                    (-1) if y < 0 else (1 if y > ProjSettings.RoomSettings.dimensions[1] - 1 else 0)))
+            new_room = self.world.rooms_data[cords] if cords in self.world.rooms_data else {}
+            if 'entities' not in new_room:
+                return
+            cords = (x % ProjSettings.RoomSettings.dimensions[0], y % ProjSettings.RoomSettings.dimensions[1])
+            new_room['tiles'][cords]['object'] = 'NormalFloor'
+
     def get_sensory_val(self, sense):
         match sense:
             case 'rotation':
-                return self.rotation/360
+                return self.rotation / 360
             case 'sine':
                 return math.sin(self.age)
             case 'age':
@@ -122,6 +151,10 @@ class Ant(BaseEntity):
                 self.next_actions.append(('rotate', tuple([-90])))
             case 'rotate+':
                 self.next_actions.append(('rotate', tuple([+90])))
+            case 'dig':
+                x = int(round(self.cords[0] + math.cos(math.radians(self.rotation))))
+                y = int(round(self.cords[1] - math.sin(math.radians(self.rotation))))
+                self.next_actions.append(('dig', (x, y)))
             case _:
                 self.energy -= 0.0001
 
@@ -148,16 +181,16 @@ class Ant(BaseEntity):
     def update(self, tick):
         self.logic(tick)
         #
-        #if self.queen.alive:
+        # if self.queen.alive:
         #    return
-        #else:
+        # else:
         #    self.logic(tick)
 
 
 class SwarmQueen(BaseEntity):
-    def __init__(self, cords, room, rotation=0):
+    def __init__(self, cords, room, world, rotation=0):
         print(cords)
-        super(SwarmQueen, self).__init__(cords, room, rotation)
+        super(SwarmQueen, self).__init__(cords, room, world, rotation)
         self.queen = None
         self.sensory_types = ['age', 'my_energy', 'neighbour_count', 'room_population', 'fwd_view', 'obstacle_circle',
                               'sine', 'ant_population']
@@ -182,7 +215,7 @@ class SwarmQueen(BaseEntity):
             case 'age':
                 return self.age
             case 'my_energy':
-                return self.energy/10000
+                return self.energy / 10000
             case 'room_population':
                 return len(self.room['entities'])
             case 'fwd_view':
@@ -212,7 +245,7 @@ class SwarmQueen(BaseEntity):
                 y = int(self.cords[1] - math.sin(math.radians(self.rotation + 90)))
                 if self.room['tiles'][(x, y)]['object'] == 'NormalFloor' if (x, y) in self.room[
                     'tiles'] else False:
-                    ant = Ant((x, y), self.room, self)
+                    ant = Ant((x, y), self.room, self.world, self)
             if ant is None:
                 if id(self) in self.room['entities']:
                     self.room['entities'].pop(id(self))

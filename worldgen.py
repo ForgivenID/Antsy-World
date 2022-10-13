@@ -6,6 +6,8 @@ import random as rnd
 import threading as thr
 from functools import cache, lru_cache
 
+import cloudpickle as cpk
+
 from misc import ProjSettings
 from misc.ProjSettings import SimSettings
 from misc.Distributors import SimpleDistributor
@@ -75,6 +77,10 @@ def check_shape(x, y, d):
                  _n_room_neighbors().items()]
     return shape_patterns[tuple(neighbors)] if tuple(neighbors) in shape_patterns else (1, 0)
 
+def check_reshape(x, y, d):
+    neighbors = [bool(d[cords[0] + x, cords[1] + y]) if cords in d else False for i, cords in
+                 _n_room_neighbors().items()]
+    return shape_patterns[tuple(neighbors)] if tuple(neighbors) in shape_patterns else (1, 0)
 
 class _WorldGen:
     """
@@ -156,12 +162,14 @@ class _WorldGen:
                     continue
                 elif c >= 6:
                     generated_tiles[_cords] = 1
+        data = {'tiles': {
+            cords_: {'type': check_shape(*cords_, generated_tiles), 'object': 'NormalWall'} if tile else
+            {'type': 1, 'object': 'NormalFloor'}
+            for cords_, tile in generated_tiles.items() if cords_ in self.room_cords},
+            'cords': cords,
+        }
+        return data
 
-        return {
-            'tiles': {
-                cords: {'type': check_shape(*cords, generated_tiles), 'object': 'NormalWall'} if tile else
-                {'type': 1, 'object': 'NormalFloor'}
-                for cords, tile in generated_tiles.items() if cords in self.room_cords}}
 
     def run(self) -> None:
         """
