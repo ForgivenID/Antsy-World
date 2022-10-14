@@ -103,19 +103,21 @@ class Ant(BaseEntity):
         if (x, y) in self.room['tiles']:
             if self.room['tiles'][(x, y)]['object'] == 'NormalWall':
                 self.room['tiles'][(x, y)]['object'] = 'NormalFloor'
+                self.world.reshape(self.room['cords'], (x,y))
         elif (0 > x or x > ProjSettings.RoomSettings.dimensions[0] - 1 or
               0 > y or y > ProjSettings.RoomSettings.dimensions[1] - 1):
-            cords = (
+            cords_ = (
                 self.room['cords'][0] + (
                     (-1) if x < 0 else (1 if x > ProjSettings.RoomSettings.dimensions[0] - 1 else 0))
                 ,
                 self.room['cords'][1] + (
                     (-1) if y < 0 else (1 if y > ProjSettings.RoomSettings.dimensions[1] - 1 else 0)))
-            new_room = self.world.rooms_data[cords] if cords in self.world.rooms_data else {}
+            new_room = self.world.rooms_data[cords_] if cords_ in self.world.rooms_data else {}
             if 'entities' not in new_room:
                 return
             cords = (x % ProjSettings.RoomSettings.dimensions[0], y % ProjSettings.RoomSettings.dimensions[1])
             new_room['tiles'][cords]['object'] = 'NormalFloor'
+            self.world.reshape(cords_, cords)
 
     def get_sensory_val(self, sense):
         match sense:

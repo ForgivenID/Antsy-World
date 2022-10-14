@@ -77,7 +77,7 @@ class SimSettings:
     use_smart_request_distributor: bool = False
     name: str = datetime.datetime.now().strftime('%d.%m.%Y %H-%M-%S')
     room_settings = RoomSettings()
-    tickrate: float = 15.0  # ticks per second
+    tickrate: float = 5.0  # ticks per second
 
 
 class RenderingSettings:
