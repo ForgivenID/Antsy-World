@@ -83,7 +83,7 @@ class SimSettings:
 class RenderingSettings:
     rendering_distance: int = 10
     framerate: int = 61
-    fullscreen: bool = False
+    fullscreen: bool = True
     window_size: tuple[int, int] = (1000, 1000)
     resolution: tuple[int, int] = (GetSystemMetrics(0), GetSystemMetrics(1))
     room_size: tuple[int, int] = (RoomSettings.dimensions[0] * TileSettings.dimensions[0],

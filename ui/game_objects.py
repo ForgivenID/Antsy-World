@@ -88,3 +88,8 @@ class Room:
                      pg.Rect(cords[0] * rs.tile_size[0], cords[1] * rs.tile_size[1],
                              *rs.room_size))'''
         screen.blit(self.entity_surface, (cords[0], cords[1]))
+
+    def draw_data(self, screen: pg.Surface, _id):
+        if _id or True:
+            rect = pg.Rect(0,0, 100, 100)
+            pg.draw.rect(screen, (0, 0, 0), rect)

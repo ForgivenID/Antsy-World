@@ -1,11 +1,8 @@
-import time
-from functools import cached_property
-
 from misc import ProjSettings
 import pickle as pkl
 from pathlib import Path
 from misc.Paths import cwd
-import threading as thr
+
 from worldgen import check_reshape
 
 neighbors = lambda x, y, d: sum([int(d[x2, y2]) for x2 in range(x - 1, x + 2)

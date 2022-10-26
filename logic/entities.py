@@ -55,6 +55,9 @@ class BaseEntity:
     def update(self, tick):
         self.logic(tick)
 
+    def apply(self):
+        pass
+
     def logic(self, tick):
         self.age += 0.1
 
@@ -190,7 +193,7 @@ class Ant(BaseEntity):
 
 
 class SwarmQueen(BaseEntity):
-    def __init__(self, cords, room, world, rotation=0):
+    def __init__(self, cords, room, world, rotation=0, all_entities=[]):
         print(cords)
         super(SwarmQueen, self).__init__(cords, room, world, rotation)
         self.queen = None
@@ -201,6 +204,7 @@ class SwarmQueen(BaseEntity):
         self.room['entities'][id(self)] = {'cords': self.cords, 'rotation': self.rotation, 'type': 'SwarmQueen'}
         self.genome = Genome(self)
         self.rotation = rn.randint(0, 8) * 90
+        self.all_entities = all_entities
         self.ants: list[Ant] = []
         self.create_ant()
 
@@ -255,6 +259,7 @@ class SwarmQueen(BaseEntity):
                 del self
             else:
                 self.ants.append(ant)
+                self.all_entities.append(ant)
 
     def apply(self):
         if self.energy < 0:
@@ -272,7 +277,6 @@ class SwarmQueen(BaseEntity):
         self.age += 0.1
         self.genome.brain.update_brain()
         self.apply()
-        [(ant.update(tick), ant.apply()) for ant in self.ants]
         # with Pool(processes=3) as p:
         #    data = p.starmap(Ant.logic_async, [(ant, tick) for ant in self.ants])
         # [(self.ants[i].perform(data[i]), self.ants[i].apply()) for i in range(len(data))]

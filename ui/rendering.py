@@ -17,6 +17,7 @@ events = {}
 known_rooms = {'new': {}, 'known': {}}
 room_objects = {}
 entities = []
+picked_position: tuple[int, int] = (0, 0)
 
 pg.font.init()
 font = pg.font.SysFont("Comic Sans Ms", 36)
@@ -171,6 +172,7 @@ class DrawThread(thr.Thread):
     """
         Drawing thread.
     """
+
     def __init__(self):
         super(DrawThread, self).__init__(name='Antsy Drawer', daemon=True)
         self.clock = pg.time.Clock()
@@ -190,15 +192,15 @@ class DrawThread(thr.Thread):
         se = pg.Surface(tiled.size)
         pg.event.pump()
         frame_counter = 0
-        avg_fps = '000'
-        rpf = '000/000'
-        frametime_buffer = 0
+        avg_fps: str = '000'
+        rpf: str = '000/000'
+        frametime_buffer: int = 0
         self.display.set_alpha(None)
         fps_text = font.render(avg_fps, True, (255, 0, 0))
         rpf_text = font.render(rpf, True, (255, 0, 0))
         redraw: bool = False
-        room_per_frame = 0
-        entity_redraw_per_frame = 0
+        room_per_frame: int = 0
+        entity_redraw_per_frame: int = 0
         while not self.halted.is_set():
             frame_counter += 1
             last_frame_took = self.clock.tick(rs.framerate) * .001
@@ -279,12 +281,12 @@ class RenderThread(multiprocessing.Process):
         """
         Run this RenderingThread.
         """
-        global _escaped, events, known_rooms, entities
+        global _escaped, events, known_rooms, entities, picked_position
         draw_thr = DrawThread()
 
         draw_thr.start()
         pg.display.set_caption('AntsyWorld')
-        pg.event.set_allowed([pg.QUIT, pg.KEYDOWN, pg.KEYUP])
+        pg.event.set_allowed([pg.QUIT, pg.KEYDOWN, pg.KEYUP, pg.MOUSEBUTTONDOWN])
         speed = 0.5
         shift = False
 
@@ -297,6 +299,8 @@ class RenderThread(multiprocessing.Process):
                     case pg.QUIT:
                         self.manager.halted.set()
                         self.halt()
+                    case pg.MOUSEBUTTONDOWN:
+                        pass
                 if events[pg.K_ESCAPE]:
                     self.manager.halted.set()
                     self.halt()

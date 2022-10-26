@@ -1,0 +1,5 @@
+numpy
+pygame
+pywin32
+nuitka
+zstandard

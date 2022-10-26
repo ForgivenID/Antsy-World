@@ -1,8 +1,9 @@
 import multiprocessing as mp
+import os
 
 from logic.logistics import LogicProcess
 from misc import ProjSettings
-
+from time import sleep
 
 class Manager:
     def __init__(self):
@@ -10,6 +11,9 @@ class Manager:
         self.entities_queue: mp.Queue = mp.Queue(maxsize=1)
         self.logic_queue: mp.Queue = mp.Queue(maxsize=100)
         self.halted: mp.Event = mp.Event()
+        self.data = mp.Manager().Namespace()
+        self.data.id_picked = 0
+        self.data.data_picked = {}
 
     def get_camera_boundaries(self):
         if not self.render_queue.empty():
@@ -40,7 +44,6 @@ class Manager:
             return data
         return {}
 
-
 if __name__ == '__main__':
     mp.current_process().name = "Antsy World"
     manager = Manager()
@@ -49,7 +52,7 @@ if __name__ == '__main__':
     logistics.start()
 
     from ui.rendering import RenderThread
-
+    sleep(3)
     rendering = RenderThread(manager)
     rendering.start()
     rendering.join()
