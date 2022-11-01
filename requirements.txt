@@ -1,5 +1,4 @@
-numpy
-pygame
-pywin32
-nuitka
-zstandard
+numpy~=1.23.3
+pygame~=2.1.2
+pywin32~=304
+Shapely~=1.8.5.post1

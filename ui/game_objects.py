@@ -1,6 +1,9 @@
 from pathlib import Path
 
+import numpy as np
 import pygame as pg
+import rasterio.features
+from shapely import geometry
 
 from misc.Paths import cwd
 from misc.ProjSettings import RenderingSettings as rs
@@ -37,6 +40,11 @@ def convert_images():
     ant.convert()
 
 
+def to_polygons(points):
+    shapes = rasterio.features.shapes(points)
+    return [geometry.Polygon(shape[0]["coordinates"][0]).simplify(0) for shape in shapes if shape[1] == 1]
+
+
 class Room:
     def __init__(self):
         self.data = {'tiles': {}, 'entities': {}}
@@ -45,26 +53,27 @@ class Room:
         self.entity_surface = pg.Surface((rs.room_size[0] + 10, rs.room_size[1] + 10))
         self.drawn = False
         self.entities_drawn = False
+        self.polygons = []
 
     def update(self, data) -> int:
         if 'tiles' in data and data['tiles'] != self.data['tiles']:
             self.drawn = False
+            i, j = zip(*data['tiles'].keys())
+            a = np.zeros((max(i) + 1, max(j) + 1), np.uint8)
+            b = [v['object'] == 'NormalWall' for v in data['tiles'].values()]
+            np.add.at(a, tuple((i, j)), tuple(b))
+            self.polygons = to_polygons(a.T)
             for cords, tile in data['tiles'].items():
                 if cords not in self.data['tiles'] or self.data['tiles'][cords] != tile:
                     if self.surface.get_locked():
                         return 1
-                    match tile['object']:
-                        case 'NormalWall':
-                            pg.draw.rect(self.surface, (0, 0, 0),
-                                         pg.Rect(cords[0] * rs.tile_size[0], cords[1] * rs.tile_size[1],
-                                                 *rs.tile_size))
-                            blitRotateCenter(self.surface, wall_types[tile['type'][0]].surface,
-                                             (cords[0] * rs.tile_size[0], cords[1] * rs.tile_size[1]),
-                                             90 * (tile['type'][1] + 2))
-                        case 'NormalFloor':
-                            self.surface.blit(floor.surface,
-                                              (cords[0] * rs.tile_size[0], cords[1] * rs.tile_size[1]))
+                    pg.draw.rect(self.surface, (0, 0, 0),
+                                 pg.Rect(cords[0] * rs.tile_size[0], cords[1] * rs.tile_size[1],
+                                         *rs.tile_size))
                     self.data['tiles'][cords] = tile
+            [pg.draw.polygon(self.surface, (100, 100, 100),
+                             [(p[0] * rs.tile_size[0], p[1] * rs.tile_size[1]) for p in
+                              polygon.exterior.coords[:-1]]) for polygon in self.polygons]
         if 'entities' in data and data['entities'] != self.data['entities']:
             self.entities_drawn = False
             self.entity_surface.fill((0, 0, 0))
@@ -91,5 +100,5 @@ class Room:
 
     def draw_data(self, screen: pg.Surface, _id):
         if _id or True:
-            rect = pg.Rect(0,0, 100, 100)
+            rect = pg.Rect(0, 0, 100, 100)
             pg.draw.rect(screen, (0, 0, 0), rect)

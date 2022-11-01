@@ -108,15 +108,15 @@ class GPULogicProcess(mp.Process):
     def run(self) -> None:
         self.generator = worldgen.WorldGenHandler(self.world_settings)
         self.generator.start()
-        [self.get_rooms([(x, y)]) for x in range(5) for y in range(5)]
-        for _ in range(25):
+        [self.get_rooms([(x, y)]) for x in range(1) for y in range(1)]
+        for _ in range(1):
             data = self.generator.output.get()
             # print(data)
             data[1]['entities'] = {}
             self.world.rooms_data[data[0]] = data[1]
         self.entities = []
 
-        for _ in range(100):
+        for _ in range(1):
             queen = None
             r_cords = rn.choice(list(self.world.rooms_data.keys()))
             while queen is None:
