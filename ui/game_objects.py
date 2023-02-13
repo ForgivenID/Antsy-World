@@ -25,16 +25,16 @@ class ImageSurface:
         self.image = self.image.convert()
         self.surface = self.image
 
-
-wall_types = {i: ImageSurface('NormalWall', i) for i in range(1, 7)}
-floor = ImageSurface('NormalFloor')
-ant = ImageSurface('NormalAnt')
+class Tiles:
+    wall_types = {i: ImageSurface('NormalWall', i) for i in range(1, 7)}
+    floor = ImageSurface('NormalFloor')
+    ant = ImageSurface('NormalAnt')
 
 
 def convert_images():
-    [image_surface.convert() for image_surface in wall_types.values()]
-    floor.convert()
-    ant.convert()
+    [image_surface.convert() for image_surface in Tiles.wall_types.values()]
+    Tiles.floor.convert()
+    Tiles.ant.convert()
 
 
 class Room:
@@ -58,18 +58,18 @@ class Room:
                             pg.draw.rect(self.surface, (0, 0, 0),
                                          pg.Rect(cords[0] * rs.tile_size[0], cords[1] * rs.tile_size[1],
                                                  *rs.tile_size))
-                            blitRotateCenter(self.surface, wall_types[tile['type'][0]].surface,
+                            blitRotateCenter(self.surface, Tiles.wall_types[tile['type'][0]].surface,
                                              (cords[0] * rs.tile_size[0], cords[1] * rs.tile_size[1]),
                                              90 * (tile['type'][1] + 2))
                         case 'NormalFloor':
-                            self.surface.blit(floor.surface,
+                            self.surface.blit(Tiles.floor.surface,
                                               (cords[0] * rs.tile_size[0], cords[1] * rs.tile_size[1]))
                     self.data['tiles'][cords] = tile
         if 'entities' in data and data['entities'] != self.data['entities']:
             self.entities_drawn = False
             self.entity_surface.fill((0, 0, 0))
             for entity in data['entities'].values():
-                blitRotateCenter(self.entity_surface, ant.surface,
+                blitRotateCenter(self.entity_surface, Tiles.ant.surface,
                                  (entity['cords'][0] * rs.tile_size[0] + 5, entity['cords'][1] * rs.tile_size[1] + 5),
                                  (entity['rotation']))
             self.data['entities'] = data['entities']

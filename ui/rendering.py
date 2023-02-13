@@ -16,13 +16,12 @@ _escaped = False
 events = {}
 known_rooms = {'new': {}, 'known': {}}
 room_objects = {}
-entities = []
 picked_position: tuple[int, int] = (0, 0)
 
 pg.font.init()
 font = pg.font.SysFont("Comic Sans Ms", 36)
 
-lock = RLock()
+r_lock = RLock()
 
 
 class Camera(pg.Surface):
@@ -32,13 +31,12 @@ class Camera(pg.Surface):
 
     def __init__(self):
         super(Camera, self).__init__(size=(600, 600))
-        self.position, self.velocity = np.array([1000., 1000., 1.], ), np.array([.0, .0, .0])
-        self.d_position = np.array([.0, .0, .0])
-        self.friction = np.array([-.03, -.03, -.05])
-        self.acceleration = np.array([.0, .0, .0])
-        self.max_velocity = np.array([6., 6., 1.])
-        self.max_position = np.array([18000., 18000., 5])
-        self.min_position = np.array([0., 0., 0.7])
+        self.position, self.velocity = np.array([1000., 1000., 1.], dtype='double'), np.array([.0, .0, .0], dtype='double')
+        self.friction = np.array([-.03, -.03, -.05], dtype='double')
+        self.acceleration = np.array([.0, .0, .0], dtype='double')
+        self.max_velocity = np.array([6., 6., 1.], dtype='double')
+        self.max_position = np.array([18000., 18000., 5], dtype='double')
+        self.min_position = np.array([0., 0., 0.7], dtype='double')
 
     def movement(self, dt):
         """
@@ -55,11 +53,11 @@ class Camera(pg.Surface):
         for i, val in enumerate(self.velocity):
             if val > self.max_velocity[i]:
                 self.velocity[i] = self.max_velocity[i]
-        if abs(self.velocity[0]) < .005:
+        if abs(self.velocity[0]) < .0005:
             self.velocity[0] = 0
-        if abs(self.velocity[1]) < .005:
+        if abs(self.velocity[1]) < .0005:
             self.velocity[1] = 0
-        if abs(self.velocity[2]) < .002:
+        if abs(self.velocity[2]) < .0002:
             self.velocity[2] = 0
 
     def update(self, dt):
@@ -215,7 +213,7 @@ class DrawThread(thr.Thread):
                 del se
                 se = pg.Surface(tiled.size)
                 redraw = True
-            with lock:
+            with r_lock:
                 for cords, room in room_objects.items():
                     if redraw:
                         room.drawn = False
@@ -323,7 +321,7 @@ class RenderThread(multiprocessing.Process):
             self.manager.set_camera_boundaries(camera.tiled_area)
             new = self.manager.get_rooms()
             tiled = camera.repr_tiled_area()
-            with lock:
+            with r_lock:
                 for k, v in new.items():
                     if k not in known_rooms['known']:
                         room_objects[k] = Room()
